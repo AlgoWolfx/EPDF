@@ -14,7 +14,7 @@ export function applyTranslations() {
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   while (walker.nextNode()) {
     const node = walker.currentNode;
-    if (node.parentElement.closest('script, style, textarea, option, #toast, #documentStatus, #appVersion, #updateStatus, #pageTotal, #zoomLabel, #pageList, [data-user-content]')) continue;
+    if (node.parentElement.closest('script, style, textarea, option:not([data-translate]), #toast, #documentStatus, #appVersion, #updateStatus, #ocrStatus, #pageTotal, #zoomLabel, #pageList, [data-user-content]')) continue;
     if (!originals.has(node)) originals.set(node, node.textContent);
     const source = originals.get(node);
     const clean = source.trim();

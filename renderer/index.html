@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data: blob:; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data: blob:; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self' epdf-ocr:; object-src 'none'; base-uri 'none'">
   <title>Ders PDF Editor</title>
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -18,6 +18,7 @@
       <button id="btnSave" class="btn" title="Notlarla birlikte kaydet (Ctrl+S)" disabled>💾 Kaydet</button>
       <button id="btnSaveAs" class="btn" title="Farklı kaydet (Ctrl+Shift+S)" disabled>Farklı kaydet</button>
       <button id="btnPages" class="btn" disabled>Sayfalar</button>
+      <button id="btnOCR" class="btn" disabled>OCR · Metin tanı</button>
     </div>
 
     <div class="group">
@@ -72,7 +73,7 @@
       <div class="empty-card">
         <div class="welcome-label">EGORA DIGITAL SUNAR</div>
         <h1>PDF'lerin üzerinde<br>özgürce çalış.</h1>
-        <p>Not ekle, önemli yerleri vurgula, çiz ve kaydet.<br>PDF'ini buraya sürükle ya da dosya seç.</p>
+        <p>Taranmış PDF’lerdeki yazıları tanı, düzenle ve kaydet.<br>PDF'ini buraya sürükle ya da dosya seç.</p>
         <button id="btnOpen2" class="btn primary large">📂 PDF aç</button>
         <small>Ücretsiz kullanım · Hesap gerekmez · Dosyaların bilgisayarında kalır</small>
         <div class="welcome-credit">EGORA DIGITAL ve <strong>Yiğit Osman Bayrak</strong> tarafından geliştirildi.</div>
@@ -104,7 +105,7 @@
       <li><strong>Bir araç seç.</strong> Kalemle çiz, fosforlu kalemle vurgula, yazı ve şekil ekle. Seç aracıyla kendi notlarını taşı; yazıyı düzenlemek için çift tıkla.</li>
       <li><strong>Bir kopya kaydet.</strong> <kbd>Ctrl</kbd> + <kbd>S</kbd> ile ilk kayıtta dosya konumunu seç. Notlar PDF'e işlenir; başka PDF okuyucularında da görünür.</li>
     </ol>
-    <div class="privacy-note">Mevcut metni değiştirmek için Metni düzenle aracını seç ve PDF üzerindeki bir metin kutusuna tıkla. Silgi yalnızca eklediğin notları siler. Taranmış PDF’ler OCR gerektirir; her metin nesnesi düzenlenemeyebilir.</div>
+    <div class="privacy-note">Mevcut metni değiştirmek için Metni düzenle aracını seç. Taranmış PDF’lerde OCR ile yazıları tanı; görünümü koruyan aranabilir PDF veya düzenlenebilir metin PDF’i oluştur. Silgi yalnızca eklediğin notları siler.</div>
     <p class="muted">Geri al: Ctrl+Z · Yinele: Ctrl+Y · Yakınlaştır: Ctrl+fare tekerleği · Genişliğe sığdır: Ctrl+0 · Seçili notu sil: Delete</p>
     <p class="muted">Taslak notlar bu bilgisayarda otomatik saklanır. Paylaşılabilir bir PDF oluşturmak için Kaydet'i kullan.</p>
   </dialog>
@@ -130,10 +131,27 @@
     <p id="updateStatus" role="status"></p>
     <div class="dialog-buttons"><button id="btnCheckUpdate" class="btn primary">Güncellemeleri kontrol et</button><button id="btnDownloadUpdate" class="btn" hidden>Güncellemeyi indir</button><button id="btnInstallUpdate" class="btn" hidden>Yeniden başlat ve kur</button><button id="btnReleasePage" class="btn">Sürümler sayfası ↗</button></div>
   </dialog>
+  <dialog id="ocrDialog" aria-labelledby="ocrTitle">
+    <div class="dialog-heading"><span class="welcome-label">ÇEVRİMDIŞI OCR</span><button class="btn icon" id="btnCloseOCR" aria-label="Pencereyi kapat">×</button></div>
+    <h2 id="ocrTitle">Taramadaki yazıları tanı</h2>
+    <p class="muted">Türkçe ve İngilizce dil dosyaları uygulamaya dahildir. Belgeler bilgisayarında işlenir; internet gerekmez.</p>
+    <div class="ocr-options">
+      <label>Dil <select id="ocrLanguage"><option value="tur+eng">Türkçe + English</option><option value="tur">Türkçe</option><option value="eng">English</option></select></label>
+      <label>Sayfalar <select id="ocrScope"><option value="current" data-translate>Bu sayfa</option><option value="all" data-translate>Tüm sayfalar</option></select></label>
+      <label>Çıktı <select id="ocrMode"><option value="searchable" data-translate>Aranabilir PDF · Görünüm korunur</option><option value="editable" data-translate>Düzenlenebilir metin PDF’i</option></select></label>
+    </div>
+    <label class="ocr-check"><input id="ocrForce" type="checkbox"> Metin içeren sayfaları da tara</label>
+    <p class="privacy-note">Aranabilir PDF, tarama görüntüsünü korur ve tanınan yazıyı görünmez metin katmanına ekler. Düzenlenebilir metin PDF’i, seçilen sayfalardaki tarama görüntüsünü metinle değiştirir; resim ve tablo görünümü korunmaz. Tanıma hatalarını uygulamadan önce düzelt.</p>
+    <progress id="ocrProgress" max="100" value="0" aria-label="OCR ilerlemesi"></progress>
+    <p id="ocrStatus" role="status"></p>
+    <div id="ocrResults" data-user-content></div>
+    <div class="dialog-buttons"><button id="btnRunOCR" class="btn primary">Metni tanı</button><button id="btnCancelOCR" class="btn" hidden>İşlemi durdur</button><button id="btnApplyOCR" class="btn" disabled>Sonuçları uygula</button></div>
+  </dialog>
   <div id="toast" role="status" aria-live="polite"></div>
 
   <script src="../node_modules/pdf-lib/dist/pdf-lib.min.js"></script>
   <script src="../node_modules/@pdf-lib/fontkit/dist/fontkit.umd.min.js"></script>
+  <script src="../node_modules/tesseract.js/dist/tesseract.min.js"></script>
   <script type="module" src="app.js"></script>
 </body>
 </html>

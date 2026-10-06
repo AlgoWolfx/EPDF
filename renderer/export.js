@@ -20,7 +20,7 @@ function hexToRgb(hex) {
 export async function buildPdf({ bytes, annots, viewports, fontBytes, applyPagePlan = true }) {
   const doc = await PDFDocument.load(await removeTextObjects(bytes, annots));
 
-  const hasText = Object.values(annots).some(l => l.some(a => a.type === 'text' || (a.type === 'replaceText' && a.text)));
+  const hasText = Object.values(annots).some(l => l.some(a => a.type === 'text' || (a.type === 'replaceText' && a.text) || (a.type === 'ocr' && a.lines.some(line => line.text))));
   let font = null;
   let unicodeFont = false;
   if (hasText) {
@@ -37,7 +37,15 @@ export async function buildPdf({ bytes, annots, viewports, fontBytes, applyPageP
     if (key === '__pages') continue;
     if (!list.length) continue;
     const idx = Number(key);
-    const page = doc.getPage(idx);
+    let page = doc.getPage(idx);
+    if (list.some(a => a.type === 'ocr' && a.mode === 'editable')) {
+      const media = page.getMediaBox(), crop = page.getCropBox(), rotation = page.getRotation();
+      page = doc.insertPage(idx, [media.width, media.height]);
+      page.setMediaBox(media.x, media.y, media.width, media.height);
+      page.setCropBox(crop.x, crop.y, crop.width, crop.height);
+      page.setRotation(rotation);
+      doc.removePage(idx + 1);
+    }
     const vp = viewports[idx];
     const angle = (((page.getRotation().angle % 360) + 360) % 360);
     const toPdf = (x, y) => vp.convertToPdfPoint(x, y);
@@ -51,6 +59,16 @@ export async function buildPdf({ bytes, annots, viewports, fontBytes, applyPageP
     };
 
     for (const a of list) {
+      if (a.type === 'ocr') {
+        for (const line of a.lines) {
+          if (!line.text.trim()) continue;
+          const size = Math.min(line.size, line.width / Math.max(.01, font.widthOfTextAtSize(line.text, 1)));
+          page.drawText(line.text, { x: line.pdfX, y: line.pdfY, font,
+            size: Math.max(1, size), rotate: degrees(line.angle), color: hexToRgb(line.color || '#111111'),
+            opacity: a.mode === 'searchable' ? 0 : 1 });
+        }
+        continue;
+      }
       if (a.type === 'replaceText') {
         if (a.text) {
           const matrix = a.source.matrix;

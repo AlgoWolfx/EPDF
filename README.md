@@ -2,7 +2,7 @@
 
 **EGORA DIGITAL ve Yiğit Osman Bayrak tarafından geliştirilen ücretsiz, çevrimdışı PDF düzenleyicisi.**
 
-PDF'inin mevcut metnini değiştir, not ekle, sayfaları düzenle ve bir kopya kaydet. Hesap gerekmez; PDF'ler bilgisayarında işlenir. Türkçe ve İngilizce arayüz bulunur.
+Taranmış PDF'lerde Türkçe ve İngilizce yazıları çevrimdışı tanı; metni düzelt, PDF'in mevcut metnini değiştir, not ekle ve sayfaları düzenle. Hesap gerekmez; PDF'ler bilgisayarında işlenir.
 
 ## İndir
 
@@ -13,6 +13,9 @@ PDF'inin mevcut metnini değiştir, not ekle, sayfaları düzenle ve bir kopya k
 
 ## Özellikler
 
+- **Çevrimdışı OCR:** Türkçe, İngilizce veya her iki dili kullanarak bu sayfayı ya da bütün sayfaları tara. Dil dosyaları uygulamada bulunur; ilk kullanımda da internet gerekmez.
+- **OCR sonuçlarını düzelt:** Tanınan satırlar ve güven değerleri görünür. Düşük güvenli satırlar sarı çerçeveyle işaretlenir. Sonucu değiştirmeden önce kontrol et.
+- **İki OCR çıktısı:** Aranabilir PDF seçeneği tarama görüntüsünü koruyup görünmez metin katmanı ekler. Düzenlenebilir metin PDF'i seçilen sayfalardaki görüntüyü tanınan metinle değiştirir; resimler ve tablo görünümü korunmaz. Bu seçenekte satırlar sonradan “Metni düzenle” ile değiştirilebilir.
 - **Mevcut metni düzenle:** “Metni düzenle” aracını seç ve PDF üzerindeki metin kutusuna tıkla. Yeni metni, boyutunu ve rengini belirle. Alanı boş bırakarak metni sil. Eski metin nesnesi PDF içeriğinden kaldırılır; üzerine beyaz bir kutu konmaz.
 - **Sayfaları yönet:** Sayfaları sırala, 90° döndür veya sil. Değişiklikler anında önizlenir ve geri alınabilir.
 - **Not ve çizim:** Kalem, fosforlu kalem, vurgu, alt çizgi, yazı, çizgi, ok, dikdörtgen, elips ve eklenen notlar için silgi.
@@ -26,7 +29,9 @@ PDF'inin mevcut metnini değiştir, not ekle, sayfaları düzenle ve bir kopya k
 
 Doğrudan sayfaya yerleştirilmiş metin nesneleri düzenlenir. Yeni metin Unicode yazı tipiyle orijinal konuma eklenir; orijinal PDF'in yazı tipiyle görünümü aynı olmayabilir. Bu sürüm paragrafları otomatik yeniden yerleştirmez. Çok uzun metinler komşu içerikle çakışabilir; boyutu ve satırları önizlemede kontrol et.
 
-Taranmış PDF'ler resimden oluşur ve metin düzenlemek için OCR gerekir; bu sürüm OCR içermez. Form XObject içine gömülü, çarpık veya dikey metin nesneleri için doğrudan metin düzenleme desteklenmez. Şifreli PDF'ler desteklenmez. Not ekleme araçları taranmış PDF'lerde de kullanılabilir.
+Taranmış PDF'lerde **OCR · Metin tanı** düğmesini kullan. OCR her yazıyı kusursuz tanımaz; düşük çözünürlük, eğiklik, el yazısı ve karmaşık tablolar sonuçları etkileyebilir. Aranabilir PDF oluştururken taramadaki görünen yazı değiştirilmez; düzeltilen metin arama/kopyalama katmanına uygulanır. Görünen yazıyı düzenlemek için düzenlenebilir metin PDF'i seç; bu seçenek orijinal sayfa görsellerini kaldırır. Orijinal dosya korunur.
+
+Metin katmanı bulunan sayfalar varsayılan olarak atlanır. Kısmen taranmış bir sayfada gerekirse “Metin içeren sayfaları da tara” seçeneğini kullan; aranabilir çıktıda mevcut metinle çift katman oluşabilir. OCR mevcut sayfa dönüşünü kullanır, otomatik eğiklik/yön düzeltme yapmaz; yan duran taramayı önce Sayfalar ile döndür. Form XObject içine gömülü, çarpık veya dikey metin nesneleri için doğrudan metin düzenleme desteklenmez. Şifreli PDF'ler desteklenmez.
 
 Taslak, PDF dosyasına kaydetmenin yerine geçmez. Dışa aktarılan notlar PDF'e kalıcı işlenir. Düzenlemeye devam etmek için orijinal PDF'i aynı bilgisayarda aç veya çıktıdaki yeni metni tekrar “Metni düzenle” ile seç.
 
@@ -48,7 +53,7 @@ npm run dist:portable
 
 Çıktılar `dist/` klasöründedir. `Baslat.bat`, bağımlılıklar kurulduktan sonra uygulamayı açar; PDF dosyasını bu dosyanın üzerine sürükleyebilirsin.
 
-`npm test`, gerçek Electron uygulamasında mevcut metnin değiştirilip eski metnin PDF'den çıkarıldığını, Türkçe karakterleri, sayfa düzenlemelerini, dosya korumasını, çevirileri ve güncelleme arayüzünü doğrular. GitHub Actions her değişiklikte aynı kontrolleri çalıştırır.
+`npm test`, gerçek Electron uygulamasında PDF düzenleme ve **HTTP/HTTPS istekleri engellenmişken gerçek TR/EN OCR** akışını doğrular: tanıma, iptal, toplu tarama, sonuç düzeltme, aranabilir metin katmanı ve düzenlenebilir OCR PDF'i. GitHub Actions aynı kontrolleri çalıştırır.
 
 ## Yeni sürüm yayınlama
 

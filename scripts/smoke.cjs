@@ -5,6 +5,6 @@ delete env.ELECTRON_RUN_AS_NODE;
 const child = spawn(require('electron'), [path.join(__dirname, 'electron-smoke.cjs')], {
   env, stdio: 'inherit', windowsHide: true
 });
-const timeout = setTimeout(() => { child.kill(); process.exitCode = 1; }, 60000);
+const timeout = setTimeout(() => { child.kill(); process.exitCode = 1; }, 180000);
 child.on('error', error => { console.error(error.message); clearTimeout(timeout); process.exitCode = 1; });
 child.on('exit', code => { clearTimeout(timeout); process.exitCode = code ?? 1; });

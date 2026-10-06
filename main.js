@@ -1,10 +1,11 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, protocol } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const english = require('./renderer/locales/en.json');
 const { createUpdates } = require('./updates');
 let language = 'tr';
 const tr = source => language === 'en' ? (english[source] || source) : source;
+protocol.registerSchemesAsPrivileged([{ scheme: 'epdf-ocr', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }]);
 
 let win = null;
 let pendingFile = null;
@@ -76,6 +77,14 @@ if (!gotLock) {
   });
 
   app.whenReady().then(() => {
+    protocol.handle('epdf-ocr', async request => {
+      const url = new URL(request.url);
+      const match = /^\/(eng|tur)\.traineddata\.gz$/.exec(url.pathname);
+      if (url.hostname !== 'models' || !match || request.method !== 'GET') return new Response('Not found', { status: 404 });
+      const code = match[1];
+      const file = path.join(path.dirname(require.resolve(`@tesseract.js-data/${code}/package.json`)), '4.0.0_best_int', `${code}.traineddata.gz`);
+      return new Response(await fs.promises.readFile(file), { headers: { 'Content-Type': 'application/octet-stream', 'Access-Control-Allow-Origin': '*' } });
+    });
     pendingFile = pdfFromArgs(process.argv);
     createWindow();
   });

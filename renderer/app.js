@@ -4,6 +4,7 @@ import { buildPdf } from './export.js';
 import { BRAND } from './brand.js';
 import { inspectTextObjects } from './pdf-engine.js';
 import { t, setLanguage, applyTranslations } from './i18n.js';
+import { setupOcr } from './ocr-ui.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   '../node_modules/pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url
@@ -66,6 +67,7 @@ function updateButtons() {
   $('btnSave').disabled = !has || S.saving;
   $('btnSaveAs').disabled = !has || S.saving;
   $('btnPages').disabled = !has || S.saving;
+  $('btnOCR').disabled = !has || S.saving || S.ocrRunning;
   $('btnUndo').disabled = !S.undo.length;
   $('btnRedo').disabled = !S.redo.length;
   $('pageNum').disabled = !has;
@@ -115,7 +117,7 @@ let previewGeneration = 0;
 let previewTimer;
 let previewSignature = '';
 function contentEdits() {
-  return Object.fromEntries(Object.entries(S.annots).map(([key, list]) => [key, list.filter(a => a.type === 'replaceText')]).filter(([, list]) => list.length));
+  return Object.fromEntries(Object.entries(S.annots).map(([key, list]) => [key, list.filter(a => a.type === 'replaceText' || a.type === 'ocr')]).filter(([, list]) => list.length));
 }
 function scheduleContentPreview() {
   const signature = JSON.stringify(contentEdits());
@@ -163,6 +165,15 @@ async function ensureTextObjects(i) {
 
 let selectedSource;
 async function editPdfText(i, point) {
+  const ocr = (S.annots[i] || []).find(a => a.type === 'ocr' && a.mode === 'editable');
+  const ocrLine = ocr?.lines.findIndex(line => point.x >= line.x - 3 && point.x <= line.x + line.w + 3 && point.y >= line.y - 3 && point.y <= line.y + line.h + 3);
+  if (ocrLine !== undefined && ocrLine >= 0) {
+    const line = ocr.lines[ocrLine];
+    selectedSource = { page: i, ocr, ocrLine };
+    $('originalText').value = line.text; $('replacementText').value = line.text;
+    $('replacementSize').value = Math.round(line.size * 100) / 100; $('replacementColor').value = line.color || '#111111';
+    $('editTextDialog').showModal(); $('replacementText').focus(); return;
+  }
   const page = S.pages[i];
   await ensureTextObjects(i);
   if (S.pages[i] !== page) return;
@@ -170,7 +181,7 @@ async function editPdfText(i, point) {
     const b = item.box;
     return point.x >= b.x - 3 && point.x <= b.x + b.w + 3 && point.y >= b.y - 3 && point.y <= b.y + b.h + 3;
   });
-  if (!source) { toast(t('Burada düzenlenebilir metin bulunamadı. Taranmış PDF’ler OCR gerektirir.')); return; }
+  if (!source) { toast(t('Burada metin bulunamadı. OCR · Metin tanı ile taramadaki yazıları tanıyabilirsin.')); return; }
   if (!source.editable) { toast(t('Bu metnin dönüşümü desteklenmiyor.'), true); return; }
   const existing = (S.annots[i] || []).find(a => a.type === 'replaceText' && a.source.index === source.index);
   selectedSource = { page: i, source, existing };
@@ -211,7 +222,7 @@ function redrawPage(i) {
   const transform = pdfjsLib.Util.transform(p.vp.transform, pdfjsLib.Util.inverseTransform(p.baseVp.transform));
   ctx.transform(...transform);
   for (const a of (S.annots[i] || [])) {
-    if (a.type === 'replaceText') continue;
+    if (a.type === 'replaceText' || a.type === 'ocr') continue;
     if (S.editor && S.editor.obj === a) continue;
     drawAnnot(ctx, a);
   }
@@ -219,6 +230,9 @@ function redrawPage(i) {
   if (S.tool === 'editText') {
     ctx.save(); ctx.strokeStyle = '#4f8cff'; ctx.lineWidth = 1 / S.scale;
     for (const source of p.textObjects || []) { if (source.editable) { const b = source.box; ctx.strokeRect(b.x - 2, b.y - 2, b.w + 4, b.h + 4); } }
+    for (const a of S.annots[i] || []) if (a.type === 'ocr' && a.mode === 'editable') {
+      for (const line of a.lines) if (line.text) ctx.strokeRect(line.x - 2, line.y - 2, line.w + 4, line.h + 4);
+    }
     ctx.restore();
   }
   if (S.sel && S.sel.page === i) {
@@ -364,6 +378,7 @@ async function openPath(path) {
 
 async function loadPath(path) {
   if (!path) return;
+  if (S.ocrRunning) { toast(t('Önce OCR işlemini durdur veya tamamlanmasını bekle.')); return; }
   if (S.saving) { toast(t('Kaydetme tamamlandığında başka bir PDF açabilirsin.')); return; }
   commitEditor();
   if (!await window.api.confirmLeave()) return;
@@ -538,7 +553,7 @@ function pagePoint(e, el) {
 }
 
 function topHit(pageIdx, x, y) {
-  const list = (S.annots[pageIdx] || []).filter(a => a.type !== 'replaceText');
+  const list = (S.annots[pageIdx] || []).filter(a => !['replaceText', 'ocr'].includes(a.type));
   const tol = 6 / S.scale;
   for (let j = list.length - 1; j >= 0; j--) if (hitTest(list[j], x, y, tol)) return list[j];
   return null;
@@ -646,7 +661,7 @@ function eraseAt(i, p) {
   const list = S.annots[i];
   if (!list?.length) return;
   const tol = 6 / S.scale;
-  const idx = list.findLastIndex(a => a.type !== 'replaceText' && hitTest(a, p.x, p.y, tol));
+  const idx = list.findLastIndex(a => !['replaceText', 'ocr'].includes(a.type) && hitTest(a, p.x, p.y, tol));
   if (idx < 0) return;
   pushHistory();
   list.splice(idx, 1);
@@ -828,6 +843,11 @@ $('btnApplyText').onclick = () => {
   const text = $('replacementText').value.trimEnd();
   const color = $('replacementColor').value;
   pushHistory();
+  if (selectedSource.ocr) {
+    Object.assign(selectedSource.ocr.lines[selectedSource.ocrLine], { text, size, color });
+    selectedSource = null; $('editTextDialog').close(); afterChange();
+    toast(t('Metin değiştirildi. PDF olarak kaydetmeyi unutma.')); return;
+  }
   const list = listOf(page);
   if (existing) list.splice(list.indexOf(existing), 1);
   if (text !== source.text || size !== source.size || color !== source.color) {
@@ -920,6 +940,7 @@ $('fontSize').addEventListener('input', (e) => {
 document.querySelectorAll('.tool').forEach(b => b.addEventListener('click', () => setTool(b.dataset.tool)));
 
 buildSwatches();
+setupOcr({ state: S, pagePlan, commitEditor, pushHistory, afterChange, updateButtons, toast });
 syncColorUI();
 updateButtons();
 window.api.onOpenFile(openPath);

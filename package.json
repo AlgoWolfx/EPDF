@@ -1,12 +1,17 @@
 {
   "name": "ders-pdf-editor",
   "productName": "Ders PDF Editor",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "EGORA DIGITAL ve Yiğit Osman Bayrak tarafından geliştirilen ücretsiz PDF metin, sayfa ve not düzenleyicisi",
   "author": "EGORA DIGITAL / Yiğit Osman Bayrak",
-  "repository": { "type": "git", "url": "https://github.com/AlgoWolfx/EPDF.git" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AlgoWolfx/EPDF.git"
+  },
   "homepage": "https://github.com/AlgoWolfx/EPDF",
-  "bugs": { "url": "https://github.com/AlgoWolfx/EPDF/issues" },
+  "bugs": {
+    "url": "https://github.com/AlgoWolfx/EPDF/issues"
+  },
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -17,9 +22,12 @@
   "dependencies": {
     "@embedpdf/pdfium": "^2.15.1",
     "@pdf-lib/fontkit": "^1.1.1",
+    "@tesseract.js-data/eng": "^1.0.0",
+    "@tesseract.js-data/tur": "^1.0.0",
     "electron-updater": "^6.8.9",
     "pdf-lib": "^1.17.1",
-    "pdfjs-dist": "^6.3.289"
+    "pdfjs-dist": "^6.3.289",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "electron": "^44.4.5",
@@ -42,7 +50,16 @@
       "node_modules/pdf-lib/dist/pdf-lib.min.js",
       "node_modules/@pdf-lib/fontkit/dist/fontkit.umd.min.js",
       "node_modules/@embedpdf/pdfium/dist/index.browser.js",
-      "node_modules/@embedpdf/pdfium/dist/pdfium.wasm"
+      "node_modules/@embedpdf/pdfium/dist/pdfium.wasm",
+      "node_modules/tesseract.js/dist/**/*",
+      "node_modules/tesseract.js-core/*lstm.wasm.js",
+      "node_modules/@tesseract.js-data/eng/4.0.0_best_int/**/*",
+      "node_modules/@tesseract.js-data/tur/4.0.0_best_int/**/*",
+      "!node_modules/@tesseract.js-data/*/4.0.0/**/*",
+      "!node_modules/tesseract.js-core/*.wasm",
+      "!node_modules/tesseract.js-core/tesseract-core.wasm.js",
+      "!node_modules/tesseract.js-core/tesseract-core-simd.wasm.js",
+      "!node_modules/tesseract.js-core/tesseract-core-relaxedsimd.wasm.js"
     ],
     "fileAssociations": [
       {
@@ -54,7 +71,12 @@
     "win": {
       "target": "nsis"
     },
-    "publish": { "provider": "github", "owner": "AlgoWolfx", "repo": "EPDF", "releaseType": "release" },
+    "publish": {
+      "provider": "github",
+      "owner": "AlgoWolfx",
+      "repo": "EPDF",
+      "releaseType": "release"
+    },
     "nsis": {
       "artifactName": "Ders-PDF-Editor-${version}-${arch}-Setup.${ext}",
       "oneClick": false,

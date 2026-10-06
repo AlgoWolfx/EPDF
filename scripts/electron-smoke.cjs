@@ -5,8 +5,8 @@ const path = require('node:path');
 const assert = require('node:assert/strict');
 const { PDFDocument } = require('pdf-lib');
 
-async function waitFor(check, label) {
-  const deadline = Date.now() + 15000;
+async function waitFor(check, label, timeout = 15000) {
+  const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
     if (await check()) return;
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -15,15 +15,10 @@ async function waitFor(check, label) {
 }
 
 (async () => {
-  const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'epdf-smoke-'));
+  const temp = require('node:fs').mkdtempSync(path.join(os.tmpdir(), 'epdf-smoke-'));
   app.setPath('userData', path.join(temp, 'profile'));
   const input = path.join(temp, 'original.pdf');
   const output = path.join(temp, 'notes.pdf');
-  const doc = await PDFDocument.create();
-  doc.addPage([595, 842]).drawText('PDF smoke test', { x: 50, y: 700, size: 18 });
-  doc.addPage([595, 842]).drawText('Second page', { x: 50, y: 700, size: 18 });
-  doc.addPage([595, 842]).drawText('Third page', { x: 50, y: 700, size: 18 });
-  await fs.writeFile(input, await doc.save());
   let savePath = input;
   let saveCount = 0;
   dialog.showSaveDialog = async () => { saveCount++; return { canceled: false, filePath: savePath }; };
@@ -33,6 +28,11 @@ async function waitFor(check, label) {
   const appRoot = process.env.EPDF_SMOKE_APP || path.resolve(__dirname, '..');
   app.setAppPath(appRoot);
   require(path.join(appRoot, 'main.js'));
+  const doc = await PDFDocument.create();
+  doc.addPage([595, 842]).drawText('PDF smoke test', { x: 50, y: 700, size: 18 });
+  doc.addPage([595, 842]).drawText('Second page', { x: 50, y: 700, size: 18 });
+  doc.addPage([595, 842]).drawText('Third page', { x: 50, y: 700, size: 18 });
+  await fs.writeFile(input, await doc.save());
   await app.whenReady();
   const win = BrowserWindow.getAllWindows()[0];
   win.webContents.setBackgroundThrottling(false);
@@ -166,7 +166,76 @@ async function waitFor(check, label) {
   await evaluate("document.getElementById('btnAbout').click()");
   await evaluate("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
   await win.webContents.capturePage().then(image => fs.writeFile(path.join(temp, 'about.png'), image.toPNG())).catch(() => {});
+  await evaluate("document.getElementById('aboutDialog').close()");
+  let networkAttempts = 0;
+  win.webContents.session.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*'] }, (_details, callback) => {
+    networkAttempts++; callback({ cancel: true });
+  });
+  const scanPath = path.join(temp, 'scan.pdf'), ocrOutput = path.join(temp, 'ocr.pdf');
+  const png = await evaluate(`(() => {
+    const canvas = document.createElement('canvas'); canvas.width = 1600; canvas.height = 900;
+    const ctx = canvas.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 1600, 900);
+    ctx.fillStyle = '#000'; ctx.font = '64px Arial';
+    ctx.fillText('HELLO OFFLINE OCR', 120, 200);
+    ctx.fillText('Türkçe metin İstanbul öğrenci ışık', 120, 350);
+    return canvas.toDataURL('image/png').split(',')[1];
+  })()`);
+  const scanned = await PDFDocument.create();
+  const image = await scanned.embedPng(Buffer.from(png, 'base64'));
+  scanned.addPage([800, 450]).drawImage(image, { x: 0, y: 0, width: 800, height: 450 });
+  scanned.addPage([800, 450]).drawText('Already searchable text', { x: 60, y: 350 });
+  await fs.writeFile(scanPath, await scanned.save());
+  savePath = ocrOutput;
+  win.webContents.send('open-file', scanPath);
+  await waitFor(() => evaluate("document.title.startsWith('scan') && document.querySelector('.overlay')?.width > 0"), 'taranmış PDF açma');
+  await evaluate("document.getElementById('btnOCR').click(); document.getElementById('btnRunOCR').click(); document.getElementById('btnCancelOCR').click()");
+  await waitFor(() => evaluate("document.getElementById('ocrStatus').textContent.includes('durduruldu') && !document.getElementById('btnRunOCR').disabled"), 'OCR iptali');
+  assert.equal(await evaluate("document.getElementById('btnApplyOCR').disabled"), true);
+  await evaluate("document.getElementById('ocrScope').value = 'all'; document.getElementById('btnRunOCR').click()");
+  await waitFor(() => evaluate("!document.getElementById('btnApplyOCR').disabled || document.getElementById('ocrStatus').textContent.includes('tamamlanamadı')"), 'çevrimdışı Türkçe ve İngilizce OCR', 90000);
+  assert.equal(await evaluate("document.getElementById('btnApplyOCR').disabled"), false, await evaluate("document.getElementById('ocrStatus').textContent"));
+  const recognized = await evaluate("[...document.querySelectorAll('#ocrResults textarea')].map(input => input.value).join(' ')");
+  assert.ok(recognized.includes('HELLO OFFLINE OCR'), recognized);
+  assert.ok(recognized.includes('öğrenci') && recognized.includes('ışık'), recognized);
+  assert.ok(await evaluate("document.getElementById('ocrStatus').textContent.includes('1 metinli sayfa atlandı')"));
+  assert.equal(networkAttempts, 0, 'OCR tüm model ve motor dosyalarını yerelden yüklemeli');
+  await win.webContents.capturePage().then(image => fs.writeFile(path.join(temp, 'ocr-review.png'), image.toPNG())).catch(() => {});
+  await evaluate("document.querySelectorAll('#ocrResults textarea')[0].value = 'HELLO OFFLINE OCR CORRECTED'; document.querySelectorAll('#ocrResults textarea')[0].dispatchEvent(new Event('input')); document.querySelectorAll('#ocrResults textarea')[1].value = 'Türkçe metin İstanbul öğrenci ışık'; document.querySelectorAll('#ocrResults textarea')[1].dispatchEvent(new Event('input')); document.getElementById('btnApplyOCR').click(); document.getElementById('btnSave').click()");
+  await waitFor(() => evaluate("document.getElementById('documentStatus').textContent.includes('PDF kaydedildi')"), 'aranabilir PDF kaydetme');
+  const inspectOutput = async () => evaluate(`(async () => {
+    const pdfjs = await import('../node_modules/pdfjs-dist/build/pdf.min.mjs');
+    const task = pdfjs.getDocument({ data: await window.api.readFile(${JSON.stringify(ocrOutput)}) });
+    const pdf = await task.promise, page = await pdf.getPage(1);
+    const text = (await page.getTextContent()).items.map(item => item.str).join(' ');
+    const ops = await page.getOperatorList();
+    const images = ops.fnArray.filter(op => op === pdfjs.OPS.paintImageXObject || op === pdfjs.OPS.paintInlineImageXObject).length;
+    await task.destroy(); return { text, images };
+  })()`);
+  let ocrPdf = await inspectOutput();
+  assert.ok(ocrPdf.text.includes('HELLO OFFLINE OCR CORRECTED'), ocrPdf.text);
+  assert.ok(ocrPdf.text.includes('Türkçe'), ocrPdf.text);
+  assert.ok(ocrPdf.images > 0, 'aranabilir PDF tarama görüntüsünü korumalı');
+  await evaluate("document.getElementById('btnOCR').click(); document.getElementById('ocrMode').value = 'editable'; document.getElementById('btnApplyOCR').click(); document.getElementById('btnSave').click()");
+  await waitFor(() => evaluate("document.getElementById('documentStatus').textContent.includes('PDF kaydedildi')"), 'düzenlenebilir OCR PDF');
+  ocrPdf = await inspectOutput();
+  assert.equal(ocrPdf.images, 0, 'metin PDF seçeneğinde tarama yerine gerçek metin bulunmalı');
+  assert.ok(ocrPdf.text.includes('HELLO OFFLINE OCR CORRECTED'), ocrPdf.text);
+  await evaluate("document.querySelector('[data-tool=editText]').click()");
+  const ocrPoint = await evaluate(`(() => {
+    const line = JSON.parse(localStorage.getItem('ders-pdf:' + ${JSON.stringify(scanPath)}))[0].find(a => a.type === 'ocr').lines[0];
+    const r = document.querySelector('.overlay').getBoundingClientRect();
+    return { x: Math.round(r.left + (line.x + line.w / 2) * r.width / 800), y: Math.round(r.top + (line.y + line.h / 2) * r.height / 450) };
+  })()`);
+  win.webContents.sendInputEvent({ type: 'mouseDown', button: 'left', clickCount: 1, ...ocrPoint });
+  win.webContents.sendInputEvent({ type: 'mouseUp', button: 'left', clickCount: 1, ...ocrPoint });
+  await waitFor(() => evaluate("document.getElementById('editTextDialog').open"), 'OCR ile oluşturulan metni seçme');
+  await evaluate("document.getElementById('replacementText').value = 'EDITED OCR CONTENT'; document.getElementById('btnApplyText').click(); document.getElementById('btnSave').click()");
+  await waitFor(() => evaluate("document.getElementById('documentStatus').textContent.includes('PDF kaydedildi')"), 'OCR metnini değiştirme');
+  ocrPdf = await inspectOutput();
+  assert.ok(ocrPdf.text.includes('EDITED OCR CONTENT') && !ocrPdf.text.includes('HELLO OFFLINE OCR CORRECTED'), ocrPdf.text);
+  assert.equal(networkAttempts, 0);
   console.log('PASS: PDF metin değiştirme, Unicode, sayfa sıralama/döndürme/silme, notlar, geri al/yinele, dosya koruması, TR/EN ve güncelleme arayüzü.');
+  console.log('PASS: internet engelli TR/EN OCR, iptal, toplu tarama, sonuç düzeltme, aranabilir PDF, düzenlenebilir OCR metni.');
   console.log(`Önizleme: ${path.join(temp, 'preview.png')}`);
   app.exit(0);
 })().catch(error => { console.error(error); app.exit(1); });

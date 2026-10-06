@@ -146,6 +146,16 @@ dialog textarea[readonly] { color: var(--muted); }
 .page-row > span { flex: 1; }
 #pageList { max-height: 400px; overflow: auto; }
 [hidden] { display: none !important; }
+#ocrDialog { width: min(820px, calc(100vw - 40px)); }
+.ocr-options { display: flex; flex-wrap: wrap; gap: 12px; }
+.ocr-options label { display: flex; flex-direction: column; gap: 6px; }
+.ocr-check { display: block; margin-top: 16px; }
+#ocrProgress { width: 100%; height: 8px; accent-color: var(--accent); }
+#ocrResults { max-height: 350px; overflow: auto; }
+.ocr-row { display: grid; grid-template-columns: 58px 1fr; gap: 8px; align-items: start; margin: 6px 0; }
+.ocr-row textarea { margin: 0; min-height: 44px; }
+.ocr-row small { color: var(--muted); padding-top: 10px; }
+.ocr-row.low-confidence textarea { border-color: #c9a145; }
 @media (max-width: 1000px) { .brandmark strong { display: none; } .brand-actions { gap: 5px; } }
 kbd { padding: 2px 5px; border: 1px solid #505462; border-radius: 4px; font: 12px "Segoe UI", sans-serif; }
 @media (max-width: 950px) { .brand-product, .free-badge { display: none; } }
