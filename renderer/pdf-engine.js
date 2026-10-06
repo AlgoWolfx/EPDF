@@ -29,7 +29,7 @@ function objectText(module, runtime, object, textPage) {
   } finally { runtime.wasmExports.free(ptr); }
 }
 
-export async function inspectTextObjects(bytes, pageIndex) {
+export async function inspectTextObjectsLocal(bytes, pageIndex) {
   const module = await engine();
   return withDocument(module, bytes, (doc, runtime) => {
     const page = module.FPDF_LoadPage(doc, pageIndex);
@@ -38,6 +38,16 @@ export async function inspectTextObjects(bytes, pageIndex) {
     const scratch = runtime.wasmExports.malloc(64);
     try {
       const objects = [];
+      const glyphsByObject = new Map();
+      for (let character = 0; character < module.FPDFText_CountChars(textPage); character++) {
+        const object = module.FPDFText_GetTextObject(textPage, character);
+        if (!object || !module.FPDFText_GetCharBox(textPage, character, scratch, scratch + 8, scratch + 16, scratch + 24)) continue;
+        const bounds = [0, 16, 8, 24].map(offset => runtime.getValue(scratch + offset, 'double'));
+        const glyphs = glyphsByObject.get(object) || [];
+        glyphs.push({character,unicode:module.FPDFText_GetUnicode(textPage,character),bounds,
+          angle:module.FPDFText_GetCharAngle(textPage,character)});
+        glyphsByObject.set(object,glyphs);
+      }
       for (let index = 0; index < module.FPDFPage_CountObjects(page); index++) {
         const object = module.FPDFPage_GetObject(page, index);
         if (module.FPDFPageObj_GetType(object) !== 1) continue;
@@ -49,14 +59,27 @@ export async function inspectTextObjects(bytes, pageIndex) {
         module.FPDFTextObj_GetFontSize(object, scratch + 40);
         const size = runtime.getValue(scratch + 40, 'float') * Math.hypot(matrix[0], matrix[1]);
         let color = '#111111';
+        let opacity=1;
         if (module.FPDFPageObj_GetFillColor(object, scratch + 44, scratch + 48, scratch + 52, scratch + 56)) {
           color = '#' + [44, 48, 52].map(offset => runtime.getValue(scratch + offset, 'i32').toString(16).padStart(2, '0')).join('');
+          opacity=runtime.getValue(scratch+56,'i32')/255;
         }
         // Skewed, mirrored and vertical text needs a full typesetting editor.
         const editable = Math.abs(matrix[0] * matrix[2] + matrix[1] * matrix[3]) < .01 &&
           Math.abs(Math.hypot(matrix[0], matrix[1]) - Math.hypot(matrix[2], matrix[3])) < .01 &&
           Math.abs(matrix[0]) > .001 && matrix[0] * matrix[3] - matrix[1] * matrix[2] > 0 && Number.isFinite(size) && size > 0;
-        objects.push({ index, text, bounds, matrix, size, color, editable });
+        const font = module.FPDFTextObj_GetFont(object);
+        const nameLength = module.FPDFFont_GetBaseFontName(font,0,0);
+        let fontName = '';
+        if (nameLength > 0) {
+          const namePointer = runtime.wasmExports.malloc(nameLength);
+          try {module.FPDFFont_GetBaseFontName(font,namePointer,nameLength);fontName=runtime.UTF8ToString(namePointer);}
+          finally {runtime.wasmExports.free(namePointer);}
+        }
+        const family = /times|serif/i.test(fontName) ? 'Times New Roman' : /courier|mono/i.test(fontName) ? 'Courier New' : /segoe/i.test(fontName) ? 'Segoe UI' : 'Arial';
+        const fontStyle=(/bold|black|semibold/i.test(fontName)?'bold':'')+(/italic|oblique/i.test(fontName)?'italic':'')||'normal';
+        objects.push({ index, text, bounds, matrix, size, color, opacity, editable, fontName, family, fontStyle,
+          glyphs:glyphsByObject.get(object) || [],baseline:[matrix[4],matrix[5]],rotation:Math.atan2(matrix[1],matrix[0])*180/Math.PI });
       }
       return objects;
     } finally {
@@ -67,7 +90,7 @@ export async function inspectTextObjects(bytes, pageIndex) {
   });
 }
 
-export async function removeTextObjects(bytes, annots) {
+export async function removeTextObjectsLocal(bytes, annots) {
   const replacements = Object.entries(annots).filter(([, list]) => list.some(a => a.type === 'replaceText'));
   if (!replacements.length) return bytes.slice();
   const module = await engine();
@@ -113,4 +136,29 @@ export async function removeTextObjects(bytes, annots) {
       module.PDFiumExt_CloseFileWriter(writer);
     }
   });
+}
+
+let workerPromise, sequence = 0;
+const pending = new Map();
+async function callWorker(action, bytes, value) {
+  workerPromise ||= window.api.loadPdfiumWasm().then(wasm => {
+    const worker = new Worker(new URL('./pdf-engine-worker.js',import.meta.url),{type:'module'});
+    worker.onmessage = ({data}) => {
+      const job=pending.get(data.id);if(!job)return;pending.delete(data.id);
+      if(data.error)job.reject(new Error(data.error));else job.resolve(data.result);
+    };
+    worker.onerror = () => {
+      for(const job of pending.values())job.reject(new Error('PDF metin motoru çalıştırılamadı.'));
+      pending.clear();worker.terminate();workerPromise=null;
+    };
+    worker.postMessage({wasm},[wasm.buffer]);
+    return worker;
+  }).catch(error => {workerPromise=null;throw error;});
+  const worker=await workerPromise,id=++sequence,copy=bytes.slice();
+  return new Promise((resolve,reject)=>{pending.set(id,{resolve,reject});worker.postMessage({id,action,bytes:copy,value},[copy.buffer]);});
+}
+export function inspectTextObjects(bytes,index) {return callWorker('inspect',bytes,index);}
+export function removeTextObjects(bytes,annots) {
+  if(!Object.values(annots).some(list=>list.some(item=>item.type==='replaceText'))) return Promise.resolve(bytes.slice());
+  return callWorker('remove',bytes,annots);
 }

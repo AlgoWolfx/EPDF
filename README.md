@@ -1,48 +1,40 @@
-# EPDF · Ders PDF Editor
+# EPDF
+**EGORA DIGITAL ve Yiğit Osman Bayrak tarafından geliştirilen ücretsiz, çevrimdışı Windows PDF düzenleyicisi.**
 
-**EGORA DIGITAL ve Yiğit Osman Bayrak tarafından geliştirilen ücretsiz, çevrimdışı PDF düzenleyicisi.**
+[Windows sürümünü indir](https://github.com/AlgoWolfx/EPDF/releases/latest): **Setup.exe** kurulum ve uygulama içinden güncelleme; **Portable.exe** kurulumsuz kullanım. Hesap gerekmez. PDF ve OCR işlemleri bilgisayarında yapılır.
 
-Taranmış PDF'lerde Türkçe ve İngilizce yazıları çevrimdışı tanı; metni düzelt, PDF'in mevcut metnini değiştir, not ekle ve sayfaları düzenle. Hesap gerekmez; PDF'ler bilgisayarında işlenir.
+## Düzenleme
+- Belge merkezli masaüstü arayüzü: dosya menüsü, belge başlığı, tek biçimli araçlar, sayfa küçük resimleri, içindekiler ve bağlamsal özellikler.
+- Açık/koyu tema; Türkçe ve İngilizce arayüz. Tercihler sonraki açılışta korunur.
+- **Mevcut metin:** Metni düzenle aracında yazıya tıkla. Doğrudan belge üzerindeki kutuda yaz; sağ panelden yazı tipi, boyut, renk, hizalama, satır/harf aralığı, konum ve kutu genişliğini değiştir. Ctrl+Enter uygular; Escape bekleyen düzenlemeyi iptal eder.
+- **Seç:** Tek tıklamayla metin veya eklediğin nesneyi seç; çift tıklamayla metni düzenle. Metni sürükle, sağ kenarından kutusunu boyutlandır veya ok tuşlarıyla taşı. Shift+ok 10 birim taşır. Delete siler; Ctrl+C / Ctrl+V desteklenen nesneleri kopyalayıp ekler.
+- **Metin ve resim ekle:** PNG/JPEG yerleştir, taşı, boyutlandır, döndür, opaklığını değiştir, kırp veya değiştir.
+- Kalem, fosforlu kalem, vurgu, alt çizgi, çizgi, ok, dikdörtgen, elips ve eklenen notlar için silgi.
+- Sayfaları sırala, 90° döndür veya sil. Ortak Ctrl+Z / Ctrl+Y geçmişi metin, OCR, resim, not ve sayfa işlemlerini kapsar.
+- **Ctrl+F:** Özgün PDF metni, düzenlenen metin, eklenen yazılar ve OCR satırları içinde ara. Sonuca tıklayınca ilgili sayfa ve bölge vurgulanır.
+- Kaydır aracı, sayfa gezinme, yakınlaştırma, genişliğe/sayfaya sığdırma.
 
-## İndir
+## Taranmış PDF ve OCR
+**Türkçe, İngilizce ve Portekizce** dil modelleri uygulamada bulunur; ilk kullanımda da internet gerekmez.
 
-[GitHub Releases](https://github.com/AlgoWolfx/EPDF/releases/latest) üzerinden Windows x64 sürümünü indir:
+Metni düzenle aracında taranmış yazıya tıklamak OCR'yi otomatik başlatır. OCR panelinden bu sayfayı veya tüm sayfaları da tanıyabilirsin. Kullanışlı yerel metin bulunan sayfalar atlanır; görüntü ağırlıklı ve karma sayfalar değerlendirilir. Gerekirse zorla tanıma seçeneğini kullan.
 
-- **Setup.exe:** Windows'a kurulum; uygulama içinden güncelleme kontrolü ve kurulum.
-- **Portable.exe:** Kurulumsuz kullanım; yeni sürümü Releases sayfasından indir.
+OCR, blok/satır/kelime sırasını, koordinatları, güven değerini, yönü ve tahmini metin rengini tutar. Panelin **Arka planda** düğmesiyle çalışmaya devam et; alt çubuktaki OCR durumuna tıklayarak panele dön. Geçerli sayfa önceliklidir. Sonuçlar açık belge için önbelleğe alınır. İptal başka sayfalarda yaptığın düzenlemeleri geri almaz.
 
-## Özellikler
+- **Aranabilir PDF:** Özgün tarama korunur; tanınan metin görünmez arama/kopyalama katmanına eklenir. İnceleme panelindeki düzeltmeler bu katmanı değiştirir.
+- **Taramayı koruyarak metin düzenle:** Değişmeyen satırlar görünmez kalır. Değiştirdiğin/sildiğin satırın eski harfleri yalnızca o bölgede yerel bir yama ile temizlenir; yeni metin gerçek PDF metni olarak eklenir. Sayfanın tamamı yeniden oluşturulmaz. Diğer görseller ve tablolar korunur.
 
-- **Çevrimdışı OCR:** Türkçe, İngilizce veya her iki dili kullanarak bu sayfayı ya da bütün sayfaları tara. Dil dosyaları uygulamada bulunur; ilk kullanımda da internet gerekmez.
-- **OCR sonuçlarını düzelt:** Tanınan satırlar ve güven değerleri görünür. Düşük güvenli satırlar sarı çerçeveyle işaretlenir. Sonucu değiştirmeden önce kontrol et.
-- **İki OCR çıktısı:** Aranabilir PDF seçeneği tarama görüntüsünü koruyup görünmez metin katmanı ekler. Düzenlenebilir metin PDF'i seçilen sayfalardaki görüntüyü tanınan metinle değiştirir; resimler ve tablo görünümü korunmaz. Bu seçenekte satırlar sonradan “Metni düzenle” ile değiştirilebilir.
-- **Mevcut metni düzenle:** “Metni düzenle” aracını seç ve PDF üzerindeki metin kutusuna tıkla. Yeni metni, boyutunu ve rengini belirle. Alanı boş bırakarak metni sil. Eski metin nesnesi PDF içeriğinden kaldırılır; üzerine beyaz bir kutu konmaz.
-- **Sayfaları yönet:** Sayfaları sırala, 90° döndür veya sil. Değişiklikler anında önizlenir ve geri alınabilir.
-- **Not ve çizim:** Kalem, fosforlu kalem, vurgu, alt çizgi, yazı, çizgi, ok, dikdörtgen, elips ve eklenen notlar için silgi.
-- **Geri al / yinele:** Metin, sayfa ve not değişiklikleri için ortak geçmiş.
-- **Türkçe / English:** Arayüz ve dosya diyalogları; dil tercihi sonraki açılışta korunur.
-- **Yerel taslak:** Notlar, metin değişiklikleri ve sayfa planı bu bilgisayarda tutulur.
-- **Güvenli kayıt:** Orijinal dosya korunur; ilk kayıtta farklı bir dosya adı seçilir.
-- **Güncellemeler:** GitHub'dan kullanıcı isteğiyle kontrol ve indirme; kurulum için ayrıca “Yeniden başlat ve kur” seçilir.
+Sarı inceleme alanları düşük güveni gösterir; şüpheli metin otomatik değiştirilmez. Arka plan onarımı açık renkli kâğıt için tasarlanmıştır. Fotoğraf/doku üzerindeki yazıları kontrol et. Yan duran taramayı Sayfalar ile döndür; otomatik eğiklik/yön düzeltmesi ve el yazısı için özel model yoktur.
 
-## Desteklenen metin düzenleme
+## Kayıt ve destek sınırları
+Özgün PDF baytları değişmez; düzenleme modeli çıktı üretilirken uygulanır. İlk kayıtta ayrı bir dosya adı seçilir. Yerel taslak, dosyanın SHA-256 özetiyle eşleştirilir. Büyük taslak depolanamazsa uygulama bildirir; PDF olarak kaydet.
 
-Doğrudan sayfaya yerleştirilmiş metin nesneleri düzenlenir. Yeni metin Unicode yazı tipiyle orijinal konuma eklenir; orijinal PDF'in yazı tipiyle görünümü aynı olmayabilir. Bu sürüm paragrafları otomatik yeniden yerleştirmez. Çok uzun metinler komşu içerikle çakışabilir; boyutu ve satırları önizlemede kontrol et.
+Yerel PDF metin nesneleri PDFium ile kaldırılır, yerine gerçek metin yazılır. PDF'nin gömülü yazı tipi her zaman yeniden kullanılamadığından Windows yazı tiplerinden bir karşılık gömülür. Otomatik paragraf akışı yoktur; uzun metinlerin komşu içerikle çakışmadığını önizlemede kontrol et. Form XObject içinde gömülü, aynalanmış/çarpık ve dikey metin için doğrudan düzenleme; şifreli PDF açma; özgün gömülü resimleri seçerek değiştirme henüz desteklenmez. Resim araçları EPDF'de eklediğin resimler içindir.
 
-Taranmış PDF'lerde **OCR · Metin tanı** düğmesini kullan. OCR her yazıyı kusursuz tanımaz; düşük çözünürlük, eğiklik, el yazısı ve karmaşık tablolar sonuçları etkileyebilir. Aranabilir PDF oluştururken taramadaki görünen yazı değiştirilmez; düzeltilen metin arama/kopyalama katmanına uygulanır. Görünen yazıyı düzenlemek için düzenlenebilir metin PDF'i seç; bu seçenek orijinal sayfa görsellerini kaldırır. Orijinal dosya korunur.
+Dışa aktarılan değişiklikler standart PDF içeriğine işlenir. Kaynak belgeyi aynı bilgisayarda açarak taslağa devam edebilir veya çıktıdaki gerçek metni yeniden seçebilirsin.
 
-Metin katmanı bulunan sayfalar varsayılan olarak atlanır. Kısmen taranmış bir sayfada gerekirse “Metin içeren sayfaları da tara” seçeneğini kullan; aranabilir çıktıda mevcut metinle çift katman oluşabilir. OCR mevcut sayfa dönüşünü kullanır, otomatik eğiklik/yön düzeltme yapmaz; yan duran taramayı önce Sayfalar ile döndür. Form XObject içine gömülü, çarpık veya dikey metin nesneleri için doğrudan metin düzenleme desteklenmez. Şifreli PDF'ler desteklenmez.
-
-Taslak, PDF dosyasına kaydetmenin yerine geçmez. Dışa aktarılan notlar PDF'e kalıcı işlenir. Düzenlemeye devam etmek için orijinal PDF'i aynı bilgisayarda aç veya çıktıdaki yeni metni tekrar “Metni düzenle” ile seç.
-
-## Gizlilik
-
-PDF'ler, taslaklar ve düzenleme işlemleri bilgisayarında kalır. Uygulama PDF'lerini bir sunucuya yüklemez. Güncelleme kontrolü GitHub'a bağlanır. Destek bağlantılarını açtığında ilgili site varsayılan tarayıcında açılır.
-
-## Geliştirme
-
+## Geliştirme ve doğrulama
 Node.js 22 veya üzeri:
-
 ```powershell
 npm ci
 npm start
@@ -50,32 +42,29 @@ npm test
 npm run dist
 npm run dist:portable
 ```
+Çıktılar `dist/` içindedir. `Baslat.bat` uygulamayı başlatır; PDF'yi üzerine sürükleyebilirsin.
 
-Çıktılar `dist/` klasöründedir. `Baslat.bat`, bağımlılıklar kurulduktan sonra uygulamayı açar; PDF dosyasını bu dosyanın üzerine sürükleyebilirsin.
+`npm test` gerçek Electron'da çalışır. HTTP/HTTPS engelliyken TR/EN/PT OCR, otomatik tanıma, iptal sırasında bağımsız düzenleme, yerel metin, Unicode, stil/konum, sayfa işlemleri, kırpılmış resim, geçmiş, tema, arama ve 125 sayfalı belge kontrol edilir. Çıktılar PDF.js ve PDFium ile yeniden açılır; tarama düzenlemesinde değişmeyen tablo/görsel pikselleri karşılaştırılır. Ayrıntılar: [doğrulama kapsamı](docs/VALIDATION.md), [mimari](docs/ARCHITECTURE.md).
 
-`npm test`, gerçek Electron uygulamasında PDF düzenleme ve **HTTP/HTTPS istekleri engellenmişken gerçek TR/EN OCR** akışını doğrular: tanıma, iptal, toplu tarama, sonuç düzeltme, aranabilir metin katmanı ve düzenlenebilir OCR PDF'i. GitHub Actions aynı kontrolleri çalıştırır.
+PDFium, PDF oluşturma/yazı tipi altkümesi ve Tesseract ayrı işçilerde çalışır. Sayfa görüntüleri ve küçük resimler ihtiyaç oldukça üretilir.
 
-## Yeni sürüm yayınlama
-
+## Güncellemeler
+GitHub üzerinden kullanıcı isteğiyle kontrol, indirme ve yeniden başlatarak kurulum. Portable sürüm yeni dosyayı Releases üzerinden alır.
 ```powershell
 npm test
 npm version patch
 git push origin main --follow-tags
 ```
-
-GitHub Actions sürüm etiketinden kurulum ve taşınabilir dosyaları üretip GitHub Releases'e ekler. `latest.yml` ve `.blockmap` dosyaları uygulama içi güncelleme için aynı sürümde tutulmalıdır. Detaylar: [CONTRIBUTING.md](CONTRIBUTING.md).
+Sürüm etiketi GitHub Actions ile Setup/Portable, blockmap ve `latest.yml` üretir. [Katkı rehberi](CONTRIBUTING.md).
 
 ## Gönüllü destek
-
-Uygulamayı faydalı bulduysan GitHub'da yıldız verebilir veya Instagram hesaplarımızı takip edebilirsin. Destek tamamen isteğe bağlıdır; tüm araçlar ücretsizdir.
-
+Tüm araçlar ücretsizdir. Faydalı bulduysan:
 - [GitHub'da yıldız ver](https://github.com/AlgoWolfx/EPDF)
 - [EGORA DIGITAL Instagram](https://www.instagram.com/egora.digital/)
 - [Yiğit Osman Bayrak Instagram](https://www.instagram.com/yigitx.x/)
 - [EGORA DIGITAL web sitesi](https://egoradigital.com/)
 
-Bağlantılar `renderer/brand.js` içinden yönetilir.
+PDF'ler sunucuya yüklenmez. Güncelleme kontrolü GitHub'a bağlanır; destek bağlantıları varsayılan tarayıcıda açılır.
 
 ## Lisanslar
-
-Üçüncü taraf bileşenlerin lisansları [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) ve `licenses/` içindedir. EPDF kaynak kodu için ayrı bir lisans henüz belirlenmedi; uygulama ücretsiz dağıtılmak üzere hazırlanmıştır.
+Üçüncü taraf lisansları [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) ve `licenses/` içindedir. EPDF kaynak kodu için ayrı bir lisans henüz belirlenmedi; uygulama ücretsiz dağıtılır.

@@ -13,10 +13,11 @@ contextBridge.exposeInMainWorld('api', {
   setDocumentEdited: (edited) => ipcRenderer.send('document:edited', edited),
   confirmLeave: () => ipcRenderer.invoke('document:confirm-leave'),
   openDialog: () => ipcRenderer.invoke('dialog:open'),
+  imageDialog: () => ipcRenderer.invoke('dialog:image'),
   readFile: (file) => ipcRenderer.invoke('file:read', file),
   saveDialog: (defaultPath, bytes, sourcePath) => ipcRenderer.invoke('dialog:save', defaultPath, bytes, sourcePath),
   writeFile: (file, bytes) => ipcRenderer.invoke('file:write', file, bytes),
-  loadFont: () => ipcRenderer.invoke('font:load'),
+  loadFont: (family,style) => ipcRenderer.invoke('font:load', family,style),
   pathInfo: (file) => ipcRenderer.invoke('path:info', file),
   pathForFile: (f) => webUtils.getPathForFile(f),
   onOpenFile: (cb) => ipcRenderer.on('open-file', (_e, file) => cb(file))

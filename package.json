@@ -1,7 +1,7 @@
 {
   "name": "ders-pdf-editor",
-  "productName": "Ders PDF Editor",
-  "version": "1.2.0",
+  "productName": "EPDF",
+  "version": "2.0.0",
   "description": "EGORA DIGITAL ve Yiğit Osman Bayrak tarafından geliştirilen ücretsiz PDF metin, sayfa ve not düzenleyicisi",
   "author": "EGORA DIGITAL / Yiğit Osman Bayrak",
   "repository": {
@@ -23,6 +23,7 @@
     "@embedpdf/pdfium": "^2.15.1",
     "@pdf-lib/fontkit": "^1.1.1",
     "@tesseract.js-data/eng": "^1.0.0",
+    "@tesseract.js-data/por": "^1.0.0",
     "@tesseract.js-data/tur": "^1.0.0",
     "electron-updater": "^6.8.9",
     "pdf-lib": "^1.17.1",
@@ -35,15 +36,16 @@
   },
   "build": {
     "copyright": "Copyright © 2026 EGORA DIGITAL / Yiğit Osman Bayrak",
-    "artifactName": "Ders-PDF-Editor-${version}-${arch}.${ext}",
+    "artifactName": "EPDF-${version}-${arch}.${ext}",
     "appId": "com.ders.pdfeditor",
-    "productName": "Ders PDF Editor",
+    "productName": "EPDF",
     "files": [
       "main.js",
       "preload.js",
       "updates.js",
       "THIRD_PARTY_NOTICES.md",
       "licenses/**/*",
+      "assets/**/*",
       "renderer/**/*",
       "node_modules/pdfjs-dist/build/pdf.min.mjs",
       "node_modules/pdfjs-dist/build/pdf.worker.min.mjs",
@@ -55,6 +57,7 @@
       "node_modules/tesseract.js-core/*lstm.wasm.js",
       "node_modules/@tesseract.js-data/eng/4.0.0_best_int/**/*",
       "node_modules/@tesseract.js-data/tur/4.0.0_best_int/**/*",
+      "node_modules/@tesseract.js-data/por/4.0.0_best_int/**/*",
       "!node_modules/@tesseract.js-data/*/4.0.0/**/*",
       "!node_modules/tesseract.js-core/*.wasm",
       "!node_modules/tesseract.js-core/tesseract-core.wasm.js",
@@ -69,7 +72,8 @@
       }
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "assets/icon.ico"
     },
     "publish": {
       "provider": "github",
@@ -78,13 +82,13 @@
       "releaseType": "release"
     },
     "nsis": {
-      "artifactName": "Ders-PDF-Editor-${version}-${arch}-Setup.${ext}",
+      "artifactName": "EPDF-${version}-${arch}-Setup.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "perMachine": false
     },
     "portable": {
-      "artifactName": "Ders-PDF-Editor-${version}-${arch}-Portable.${ext}"
+      "artifactName": "EPDF-${version}-${arch}-Portable.${ext}"
     }
   }
 }

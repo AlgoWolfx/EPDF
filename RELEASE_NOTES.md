@@ -1,20 +1,20 @@
-# EPDF 1.2.0 · Çevrimdışı OCR
+# EPDF 2.0.0
+EGORA DIGITAL ve Yiğit Osman Bayrak tarafından geliştirilen ücretsiz, çevrimdışı PDF düzenleyicisi.
 
-EGORA DIGITAL ve Yiğit Osman Bayrak tarafından geliştirilen ücretsiz PDF düzenleyicisi.
+- Yeni masaüstü arayüzü: sayfalar, içindekiler, özellik paneli, tek ikon ailesi, açık/koyu tema.
+- PDF üzerinde doğrudan metin düzenleme; yazı tipi, boyut, renk, hizalama, aralık, taşıma ve kutu boyutu.
+- Türkçe / İngilizce / Portekizce yerel OCR; otomatik tarama tanıma, blok/satır/kelime koordinatları, inceleme ve önbellek.
+- Taramayı koruyan metin değişimi: yalnızca değişen satırın arka planı onarılır. Diğer resimler ve sayfa içeriği korunur.
+- OCR arka planda çalışırken düzenleme; ilerleme ve iptal.
+- Yerel metin ve OCR için Ctrl+F arama, bölge vurgusu.
+- PNG/JPEG ekleme, taşıma, boyutlandırma, döndürme, opaklık ve kırpma.
+- Metin seçme, çift tıklayarak düzenleme, ok tuşları, kopyalama/yapıştırma ve ortak geçmiş.
+- PDF işlemleri ve kayıt üretimi ayrı işçilerde; sayfalar/küçük resimler ihtiyaç oldukça çizilir.
+- Taslak dosya özeti kontrolü; kaynak dosyayı koruyan kayıt.
+- Windows güncellemeleri GitHub Releases üzerinden.
 
-- Türkçe / İngilizce çevrimdışı OCR; dil dosyaları uygulamaya dahil.
-- Tek sayfa veya bütün sayfalarda tanıma, ilerleme göstergesi ve iptal.
-- Tanınan satırları önizleme ve düzeltme; düşük güvenli satırları işaretleme.
-- Görünümü koruyan aranabilir PDF veya düzenlenebilir metin PDF'i oluşturma.
-- PDF'in mevcut metnini seçme, değiştirme ve silme. Eski metin çıktıdaki PDF içeriğinden kaldırılır.
-- Sayfaları sıralama, döndürme ve silme; geri alma / yineleme desteği.
-- Türkçe ve İngilizce arayüz, kalıcı dil tercihi.
-- GitHub Releases üzerinden güncelleme kontrolü, indirme ve kurulum.
-- Not, çizim, vurgu, gece görünümü ve yerel taslak.
-- Orijinal PDF'i koruyan kopya kaydetme.
+**Setup.exe** kurulum; **Portable.exe** kurulumsuz kullanım. Belgeler bilgisayarında işlenir; OCR için internet gerekmez.
 
-Windows x64 için **Setup.exe** veya kurulumsuz **Portable.exe** dosyasını indir.
+OCR sonuçlarını kontrol et. Bölgesel arka plan onarımı açık renkli kâğıtta en iyi sonucu verir; fotoğraf/doku üzerinde elle kontrol gerekir. Yan duran taramaları önce döndür. Gömülü yazı tipleri Windows karşılıklarıyla değişebilir; otomatik paragraf akışı, şifreli PDF açma ve Form XObject/dikey/çarpık metin düzenleme desteklenmez.
 
-OCR sonuçlarını uygulamadan önce kontrol et. Aranabilir PDF taramanın görünümünü korur; düzeltmeler görünmez arama/kopyalama katmanına uygulanır. Düzenlenebilir metin PDF'i seçilen sayfalardaki görüntüyü metinle değiştirir; resim ve tablo görünümü korunmaz. OCR otomatik sayfa yönü/eğiklik düzeltmesi yapmaz; gerekirse önce Sayfalar aracını kullan. PDF dosyaları bilgisayarında işlenir; OCR için internet gerekmez, güncelleme kontrolü için internet kullanılır.
-
-Gönüllü destek: [GitHub yıldız](https://github.com/AlgoWolfx/EPDF), [EGORA DIGITAL Instagram](https://www.instagram.com/egora.digital/), [Yiğit Osman Bayrak Instagram](https://www.instagram.com/yigitx.x/).
+[GitHub yıldız](https://github.com/AlgoWolfx/EPDF) · [EGORA DIGITAL Instagram](https://www.instagram.com/egora.digital/) · [Yiğit Osman Bayrak Instagram](https://www.instagram.com/yigitx.x/)

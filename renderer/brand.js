@@ -1,7 +1,7 @@
 // Yayına çıkmadan önce resmi bağlantıları buraya ekleyin.
 // Boş bağlantılar uygulamada gösterilmez.
 export const BRAND = Object.freeze({
-  product: 'Ders PDF Editor',
+  product: 'EPDF',
   company: 'EGORA DIGITAL',
   developer: 'Yiğit Osman Bayrak',
   github: 'https://github.com/AlgoWolfx/EPDF',

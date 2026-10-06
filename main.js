@@ -41,7 +41,8 @@ function createWindow() {
     minWidth: 800,
     minHeight: 500,
     backgroundColor: '#1e1f24',
-    title: 'Ders PDF Editor',
+    title: 'EPDF',
+    icon: path.join(__dirname,'assets','icon.png'),
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -79,7 +80,7 @@ if (!gotLock) {
   app.whenReady().then(() => {
     protocol.handle('epdf-ocr', async request => {
       const url = new URL(request.url);
-      const match = /^\/(eng|tur)\.traineddata\.gz$/.exec(url.pathname);
+      const match = /^\/(eng|tur|por)\.traineddata\.gz$/.exec(url.pathname);
       if (url.hostname !== 'models' || !match || request.method !== 'GET') return new Response('Not found', { status: 404 });
       const code = match[1];
       const file = path.join(path.dirname(require.resolve(`@tesseract.js-data/${code}/package.json`)), '4.0.0_best_int', `${code}.traineddata.gz`);
@@ -99,6 +100,10 @@ ipcMain.handle('dialog:open', async () => {
     properties: ['openFile']
   });
   return r.canceled ? null : r.filePaths[0];
+});
+ipcMain.handle('dialog:image', async () => {
+  const result=await dialog.showOpenDialog(win,{title:tr('Resim seç'),filters:[{name:'PNG / JPEG',extensions:['png','jpg','jpeg']}],properties:['openFile']});
+  return result.canceled?null:result.filePaths[0];
 });
 
 ipcMain.handle('file:read', async (_e, file) => {
@@ -125,12 +130,17 @@ ipcMain.handle('file:write', async (_e, file, bytes) => {
   return file;
 });
 
-ipcMain.handle('font:load', async () => {
+ipcMain.handle('font:load', async (_event, family = 'Arial', style = 'normal') => {
+  const fontFiles = { Arial: ['arial.ttf','arialbd.ttf','ariali.ttf','arialbi.ttf'], 'Times New Roman': ['times.ttf','timesbd.ttf','timesi.ttf','timesbi.ttf'], 'Courier New': ['cour.ttf','courbd.ttf','couri.ttf','courbi.ttf'], 'Segoe UI': ['segoeui.ttf','segoeuib.ttf','segoeuii.ttf','segoeuiz.ttf'] };
+  const styles=['normal','bold','italic','bolditalic'];
+  if (!fontFiles[family] || !styles.includes(style)) throw new Error('Unsupported font.');
   const candidates = [
+    path.join('C:\\Windows\\Fonts', fontFiles[family][styles.indexOf(style)]),
     'C:\\Windows\\Fonts\\arial.ttf',
     'C:\\Windows\\Fonts\\segoeui.ttf',
     'C:\\Windows\\Fonts\\calibri.ttf'
   ];
+  if(family!=='Arial'||style!=='normal')candidates.splice(1);
   for (const f of candidates) {
     try { return new Uint8Array(await fs.promises.readFile(f)); } catch { /* sıradaki */ }
   }

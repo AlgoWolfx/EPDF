@@ -4,91 +4,99 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data: blob:; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self' epdf-ocr:; object-src 'none'; base-uri 'none'">
-  <title>Ders PDF Editor</title>
+  <title>EPDF</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="brandbar">
-    <div class="brandmark"><span class="brand-symbol" aria-hidden="true">E</span><strong>EGORA DIGITAL</strong><span class="brand-product">Ders PDF Editor</span></div>
-    <div class="brand-actions"><span class="free-badge">Ücretsiz · Çevrimdışı</span><select id="languageSelect" aria-label="Arayüz dili"><option value="tr">Türkçe</option><option value="en">English</option></select><button id="btnUpdates" class="btn">Güncellemeler</button><button id="btnHelp" class="btn">Kullanım rehberi</button><button id="btnAbout" class="btn">Hakkında / Destek</button></div>
-  </div>
-  <header id="toolbar">
-    <div class="group">
-      <button id="btnOpen" class="btn primary" title="PDF aç (Ctrl+O)">📂 Aç</button>
-      <button id="btnSave" class="btn" title="Notlarla birlikte kaydet (Ctrl+S)" disabled>💾 Kaydet</button>
-      <button id="btnSaveAs" class="btn" title="Farklı kaydet (Ctrl+Shift+S)" disabled>Farklı kaydet</button>
-      <button id="btnPages" class="btn" disabled>Sayfalar</button>
-      <button id="btnOCR" class="btn" disabled>OCR · Metin tanı</button>
-    </div>
-
-    <div class="group">
-      <button id="btnUndo" class="btn icon" title="Geri al (Ctrl+Z)" disabled>↶</button>
-      <button id="btnRedo" class="btn icon" title="Yinele (Ctrl+Y)" disabled>↷</button>
-    </div>
-
-    <div class="group" id="tools">
-      <button class="btn tool" data-tool="editText" title="PDF'in mevcut metnini düzenle (D)">✎ Metni düzenle</button>
-      <button class="btn tool active" data-tool="select" title="Seç / taşı (V) — Delete ile sil">🖱 Seç</button>
-      <button class="btn tool" data-tool="pen" title="Kalem (P)">✎ Kalem</button>
-      <button class="btn tool" data-tool="highlighter" title="Fosforlu kalem (H)">🖍 Fosforlu</button>
-      <button class="btn tool" data-tool="hlrect" title="Vurgu kutusu (B)">▭ Vurgu</button>
-      <button class="btn tool" data-tool="underline" title="Altını çiz (U)">U̲ Alt çizgi</button>
-      <button class="btn tool" data-tool="text" title="Yazı (T)">T Yazı</button>
-      <button class="btn tool" data-tool="line" title="Çizgi (L)">╱ Çizgi</button>
-      <button class="btn tool" data-tool="arrow" title="Ok (A)">➚ Ok</button>
-      <button class="btn tool" data-tool="rect" title="Dikdörtgen (R)">□ Kutu</button>
-      <button class="btn tool" data-tool="ellipse" title="Elips (O)">○ Elips</button>
-      <button class="btn tool" data-tool="eraser" title="Silgi (E)">⌫ Silgi</button>
-    </div>
-
-    <div class="group">
-      <div id="swatches"></div>
-      <input type="color" id="colorPick" title="Özel renk" value="#e63946">
-    </div>
-
-    <div class="group">
-      <label class="lbl" title="Çizgi kalınlığı">Kalınlık
-        <input type="range" id="width" min="1" max="24" value="3">
-      </label>
-      <label class="lbl" title="Yazı boyutu">Yazı
-        <input type="number" id="fontSize" min="6" max="96" value="16">
-      </label>
-    </div>
-
-    <div class="group right">
-      <button id="btnNight" class="btn" title="PDF renklerini ters çevir (göz yormaz)">🌙 Gece</button>
-      <button id="btnZoomOut" class="btn icon" title="Uzaklaştır (Ctrl+-)">−</button>
-      <span id="zoomLabel">100%</span>
-      <button id="btnZoomIn" class="btn icon" title="Yakınlaştır (Ctrl++)">+</button>
-      <button id="btnFit" class="btn" title="Genişliğe sığdır">↔ Sığdır</button>
-      <button id="btnPrev" class="btn icon" title="Önceki sayfa">▲</button>
-      <input type="number" id="pageNum" min="1" value="1" disabled>
-      <span id="pageTotal">/ 0</span>
-      <button id="btnNext" class="btn icon" title="Sonraki sayfa">▼</button>
-    </div>
+  <header class="menubar">
+    <strong class="app-name">EPDF</strong>
+    <details class="menu"><summary>Dosya</summary><div class="menu-popup">
+      <button id="btnOpen" class="btn" data-icon="open">PDF aç <kbd>Ctrl+O</kbd></button>
+      <button id="btnSave" class="btn" data-icon="save" disabled>Kaydet <kbd>Ctrl+S</kbd></button>
+      <button id="btnSaveAs" class="btn" disabled>Farklı kaydet</button>
+      <button id="btnPages" class="btn" disabled>Sayfaları yönet</button>
+    </div></details>
+    <button id="btnUndo" class="btn icon" data-icon="undo" title="Geri al (Ctrl+Z)" disabled></button>
+    <button id="btnRedo" class="btn icon" data-icon="redo" title="Yinele (Ctrl+Y)" disabled></button>
+    <button id="btnSearch" class="btn" data-icon="search" title="Belgede ara (Ctrl+F)">Ara</button>
+    <span class="menu-spacer"></span>
+    <span class="brand-product">EGORA DIGITAL</span>
+    <select id="languageSelect" aria-label="Arayüz dili"><option value="tr">Türkçe</option><option value="en">English</option></select>
+    <button id="btnNight" class="btn icon" data-icon="theme" title="Açık / koyu tema"></button>
+    <button id="btnUpdates" class="btn">Güncellemeler</button><button id="btnHelp" class="btn">Yardım</button><button id="btnAbout" class="btn">Hakkında / Destek</button>
   </header>
-
-  <main id="viewer">
-    <div id="empty">
-      <div class="empty-card">
-        <div class="welcome-label">EGORA DIGITAL SUNAR</div>
-        <h1>PDF'lerin üzerinde<br>özgürce çalış.</h1>
-        <p>Taranmış PDF’lerdeki yazıları tanı, düzenle ve kaydet.<br>PDF'ini buraya sürükle ya da dosya seç.</p>
-        <button id="btnOpen2" class="btn primary large">📂 PDF aç</button>
-        <small>Ücretsiz kullanım · Hesap gerekmez · Dosyaların bilgisayarında kalır</small>
-        <div class="welcome-credit">EGORA DIGITAL ve <strong>Yiğit Osman Bayrak</strong> tarafından geliştirildi.</div>
-        <button id="btnSupport" class="text-button">Faydalı bulduysan bize destek ol ↗</button>
-      </div>
+  <nav class="document-tabs" aria-label="Belge sekmeleri"><span id="documentTab" data-user-content>Belge açık değil</span><span id="tabDirty" hidden title="Kaydedilmemiş değişiklikler">•</span></nav>
+  <div id="toolbar" role="toolbar" aria-label="Düzenleme araçları">
+    <div class="group" id="tools">
+      <button class="btn tool" data-tool="view" data-icon="hand" title="Kaydır">Kaydır</button>
+      <button class="btn tool active" data-tool="select" data-icon="select" title="Seç / taşı (V) — Delete ile sil">Seç</button>
+      <button class="btn tool" data-tool="editText" data-icon="edit" title="PDF'in mevcut metnini düzenle (D)">Metni düzenle</button>
+      <button class="btn tool" data-tool="text" data-icon="text" title="Yazı (T)">Metin ekle</button>
+      <button id="btnImage" class="btn tool" data-tool="image" data-icon="image" title="Resim ekle">Resim</button>
     </div>
-    <div id="pages"></div>
-  </main>
-
-  <footer class="statusbar"><span id="documentStatus" role="status">Bir PDF açarak başlayabilirsin.</span><span>EGORA DIGITAL · Yiğit Osman Bayrak</span></footer>
-
+    <div class="group">
+      <button class="btn tool icon" data-tool="highlighter" data-icon="highlight" title="Fosforlu kalem (H)"></button>
+      <button class="btn tool icon" data-tool="hlrect" data-icon="hlrect" title="Vurgu kutusu (B)"></button>
+      <button class="btn tool icon" data-tool="underline" data-icon="underline" title="Altını çiz (U)"></button>
+      <button class="btn tool icon" data-tool="pen" data-icon="pen" title="Kalem (P)"></button>
+      <button class="btn tool icon" data-tool="line" data-icon="line" title="Çizgi (L)"></button>
+      <button class="btn tool icon" data-tool="arrow" data-icon="arrow" title="Ok (A)"></button>
+      <button class="btn tool icon" data-tool="rect" data-icon="rect" title="Dikdörtgen (R)"></button>
+      <button class="btn tool icon" data-tool="ellipse" data-icon="ellipse" title="Elips (O)"></button>
+      <button class="btn tool icon" data-tool="eraser" data-icon="eraser" title="Silgi (E)"></button>
+    </div>
+    <div class="group"><button id="btnOCR" class="btn" data-icon="ocr" disabled>OCR · Metin tanı</button></div>
+  </div>
+  <div class="workspace">
+    <aside class="navigation" aria-label="Belgede gezin">
+      <div class="panel-tabs" role="tablist"><button class="btn active" data-panel="thumbnails" role="tab" aria-selected="true">Sayfalar</button><button class="btn" data-panel="outline" role="tab" aria-selected="false">İçindekiler</button></div>
+      <section id="searchPanel" hidden><label for="searchInput">Belgede ara</label><div class="search-field"><input id="searchInput" type="search" placeholder="Metin ara…" autocomplete="off"><button id="btnCloseSearch" class="btn icon" data-icon="close" title="Aramayı kapat"></button></div><small id="searchStatus" role="status" data-user-content></small><div id="searchResults" data-user-content></div></section>
+      <div id="thumbnails" data-user-content></div><div id="outline" hidden data-user-content></div>
+    </aside>
+    <main id="viewer" tabindex="0" aria-label="PDF çalışma alanı">
+      <div id="empty"><div class="empty-card"><svg class="empty-document" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M6 2h8l4 4v16H6zM14 2v5h5M9 11h6M9 15h6M9 18h4"/></svg>
+        <h1>Bir PDF aç</h1><p>Metin düzenle, taramaları tanı ve belgeye not ekle.</p>
+        <button id="btnOpen2" class="btn primary" data-icon="open">PDF aç</button><small>Dosyayı sürükleyebilirsin · Ctrl+O</small>
+        <p class="welcome-credit">Ücretsiz · Çevrimdışı<br>EGORA DIGITAL · Yiğit Osman Bayrak</p><button id="btnSupport" class="text-button">Projeye destek ol</button>
+      </div></div><div id="pages"></div>
+    </main>
+    <aside class="properties" aria-label="Nesne özellikleri"><div class="panel-heading">Özellikler</div>
+      <p id="propertyHint" class="muted" data-user-content>Bir araç veya nesne seç.</p>
+      <section id="textProperties" hidden>
+        <label class="property-row">Yazı tipi<select id="textFont"><option value="Arial">Arial</option><option value="Times New Roman">Times New Roman</option><option value="Courier New">Courier New</option><option value="Segoe UI">Segoe UI</option></select></label>
+        <label class="property-row">Boyut<input id="fontSize" type="number" min="1" max="200" value="16"></label>
+        <label class="property-row">Biçim<select id="textStyle"><option value="normal" data-translate>Normal</option><option value="bold" data-translate>Kalın</option><option value="italic" data-translate>İtalik</option><option value="bolditalic" data-translate>Kalın italik</option></select></label>
+        <label class="property-row">Hizalama<select id="textAlign"><option value="left" data-translate>Sol</option><option value="center" data-translate>Orta</option><option value="right" data-translate>Sağ</option></select></label>
+        <label class="property-row">Satır aralığı<input id="textLeading" type="number" min=".8" max="3" step=".1" value="1.2"></label>
+        <label class="property-row">Harf aralığı<input id="textSpacing" type="number" min="-2" max="20" step=".1" value="0"></label>
+        <label class="property-row">X<input id="textX" type="number" step="1"></label><label class="property-row">Y<input id="textY" type="number" step="1"></label>
+        <label class="property-row">Kutu genişliği<input id="textBoxWidth" type="number" min="10" max="5000" step="1"></label>
+        <button id="btnCommitText" class="btn primary" hidden>Uygula · Ctrl+Enter</button>
+      </section>
+      <section id="strokeProperties" hidden><label class="property-row">Kalınlık<input type="range" id="width" min="1" max="24" value="3"></label></section>
+      <section id="imageProperties" hidden>
+        <label class="property-row">Genişlik<input id="imageWidth" type="number" min="1" max="10000"></label>
+        <label class="property-row">Yükseklik<input id="imageHeight" type="number" min="1" max="10000"></label>
+        <label class="property-row">Dönüş<input id="imageRotation" type="number" min="-360" max="360"></label>
+        <label class="property-row">Opaklık %<input id="imageOpacity" type="number" min="0" max="100"></label>
+        <label class="property-row">Sol kırpma %<input id="imageCropLeft" type="number" min="0" max="95"></label>
+        <label class="property-row">Üst kırpma %<input id="imageCropTop" type="number" min="0" max="95"></label>
+        <label class="property-row">Sağ kırpma %<input id="imageCropRight" type="number" min="0" max="95"></label>
+        <label class="property-row">Alt kırpma %<input id="imageCropBottom" type="number" min="0" max="95"></label>
+        <button id="btnReplaceImage" class="btn">Resmi değiştir</button>
+      </section>
+      <section id="colorProperties" hidden><label class="property-row">Renk<input type="color" id="colorPick" value="#e63946"></label><div id="swatches"></div></section>
+      <p class="property-footnote muted">Düzenlemeler orijinal dosyaya dokunmaz. Sonucu PDF olarak kaydet.</p>
+    </aside>
+  </div>
+  <footer class="statusbar"><span id="documentStatus" role="status">Bir PDF açarak başlayabilirsin.</span><span id="ocrActivity" role="status" data-user-content></span><span class="menu-spacer"></span>
+    <button id="btnPrev" class="btn icon" data-icon="up" title="Önceki sayfa"></button><input type="number" id="pageNum" min="1" value="1" disabled aria-label="Sayfa numarası"><span id="pageTotal">/ 0</span><button id="btnNext" class="btn icon" data-icon="down" title="Sonraki sayfa"></button>
+    <button id="btnZoomOut" class="btn icon" data-icon="minus" title="Uzaklaştır (Ctrl+-)"></button><span id="zoomLabel">100%</span><button id="btnZoomIn" class="btn icon" data-icon="plus" title="Yakınlaştır (Ctrl++)"></button><button id="btnFit" class="btn icon" data-icon="fitwidth" title="Genişliğe sığdır"></button><button id="btnFitPage" class="btn icon" data-icon="fitpage" title="Sayfaya sığdır"></button>
+  </footer>
   <dialog id="aboutDialog" aria-labelledby="aboutTitle">
     <div class="dialog-heading"><span class="welcome-label">BİRLİKTE DAHA İYİ</span><button class="btn icon" data-close-dialog aria-label="Pencereyi kapat">×</button></div>
     <h2 id="aboutTitle">Herkes için ücretsiz.</h2>
-    <p>Ders PDF Editor, <strong>EGORA DIGITAL</strong> ve <strong>Yiğit Osman Bayrak</strong> tarafından geliştirildi. PDF üzerinde çalışmayı herkes için erişilebilir kılmak istiyoruz.</p>
+    <p>EPDF, <strong>EGORA DIGITAL</strong> ve <strong>Yiğit Osman Bayrak</strong> tarafından geliştirildi. PDF üzerinde çalışmayı herkes için erişilebilir kılmak istiyoruz.</p>
     <div class="privacy-note">PDF dosyaların ve notların bilgisayarında işlenir. Hesap açman veya dosyalarını bir sunucuya yüklemen gerekmez.</div>
     <h3>Küçük bir destek, büyük bir motivasyon.</h3>
     <p>Faydalı bulduysan GitHub'da projeye yıldız verebilir veya Instagram hesaplarımızı takip edebilirsin. Destek tamamen isteğe bağlı; tüm araçları ücretsiz kullanabilirsin.</p>
@@ -109,15 +117,6 @@
     <p class="muted">Geri al: Ctrl+Z · Yinele: Ctrl+Y · Yakınlaştır: Ctrl+fare tekerleği · Genişliğe sığdır: Ctrl+0 · Seçili notu sil: Delete</p>
     <p class="muted">Taslak notlar bu bilgisayarda otomatik saklanır. Paylaşılabilir bir PDF oluşturmak için Kaydet'i kullan.</p>
   </dialog>
-  <dialog id="editTextDialog" aria-labelledby="editTextTitle">
-    <div class="dialog-heading"><span class="welcome-label">PDF İÇERİĞİNİ DÜZENLE</span><button class="btn icon" data-close-dialog aria-label="Pencereyi kapat">×</button></div>
-    <h2 id="editTextTitle">Metni değiştir</h2>
-    <label class="field-label" for="originalText">Orijinal metin</label><textarea id="originalText" rows="2" readonly></textarea>
-    <label class="field-label" for="replacementText">Yeni metin</label><textarea id="replacementText" rows="4"></textarea>
-    <div class="edit-options"><label class="lbl">Yazı boyutu <input type="number" id="replacementSize" min="1" max="200" value="16"></label><label class="lbl">Renk <input type="color" id="replacementColor" value="#111111"></label></div>
-    <p class="muted">Eski metin PDF'den kaldırılır. Yeni metin Unicode yazı tipiyle aynı konuma eklenir; orijinal yazı tipi farklı görünebilir. Metni silmek için yeni metin alanını boş bırak.</p>
-    <div class="dialog-buttons"><button class="btn" data-close-dialog>Vazgeç</button><button id="btnApplyText" class="btn primary">Değişikliği uygula</button></div>
-  </dialog>
   <dialog id="pagesDialog" aria-labelledby="pagesTitle">
     <div class="dialog-heading"><span class="welcome-label">BELGEYİ DÜZENLE</span><button class="btn icon" data-close-dialog aria-label="Pencereyi kapat">×</button></div>
     <h2 id="pagesTitle">Sayfaları yönet</h2>
@@ -134,14 +133,14 @@
   <dialog id="ocrDialog" aria-labelledby="ocrTitle">
     <div class="dialog-heading"><span class="welcome-label">ÇEVRİMDIŞI OCR</span><button class="btn icon" id="btnCloseOCR" aria-label="Pencereyi kapat">×</button></div>
     <h2 id="ocrTitle">Taramadaki yazıları tanı</h2>
-    <p class="muted">Türkçe ve İngilizce dil dosyaları uygulamaya dahildir. Belgeler bilgisayarında işlenir; internet gerekmez.</p>
+    <p class="muted">Türkçe, İngilizce ve Portekizce dil dosyaları uygulamaya dahildir. Belgeler bilgisayarında işlenir; internet gerekmez.</p>
     <div class="ocr-options">
-      <label>Dil <select id="ocrLanguage"><option value="tur+eng">Türkçe + English</option><option value="tur">Türkçe</option><option value="eng">English</option></select></label>
+      <label>Dil <select id="ocrLanguage"><option value="tur+eng">Türkçe + English</option><option value="tur">Türkçe</option><option value="eng">English</option><option value="por">Português</option></select></label>
       <label>Sayfalar <select id="ocrScope"><option value="current" data-translate>Bu sayfa</option><option value="all" data-translate>Tüm sayfalar</option></select></label>
-      <label>Çıktı <select id="ocrMode"><option value="searchable" data-translate>Aranabilir PDF · Görünüm korunur</option><option value="editable" data-translate>Düzenlenebilir metin PDF’i</option></select></label>
+      <label>Çıktı <select id="ocrMode"><option value="searchable" data-translate>Aranabilir PDF · Görünüm korunur</option><option value="editable" data-translate>Taramayı koruyarak metin düzenle</option></select></label>
     </div>
     <label class="ocr-check"><input id="ocrForce" type="checkbox"> Metin içeren sayfaları da tara</label>
-    <p class="privacy-note">Aranabilir PDF, tarama görüntüsünü korur ve tanınan yazıyı görünmez metin katmanına ekler. Düzenlenebilir metin PDF’i, seçilen sayfalardaki tarama görüntüsünü metinle değiştirir; resim ve tablo görünümü korunmaz. Tanıma hatalarını uygulamadan önce düzelt.</p>
+    <p class="privacy-note">Aranabilir PDF taramayı korur. Düzenleme modunda yalnızca değiştirdiğin satırların eski harfleri yerel bir yama ile temizlenir; diğer resimler ve sayfa içeriği korunur. Doku, çizim veya fotoğraf üzerindeki yazıları önizlemede kontrol et.</p>
     <progress id="ocrProgress" max="100" value="0" aria-label="OCR ilerlemesi"></progress>
     <p id="ocrStatus" role="status"></p>
     <div id="ocrResults" data-user-content></div>

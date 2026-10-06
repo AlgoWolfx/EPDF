@@ -1,10 +1,15 @@
 import * as pdfjsLib from '../node_modules/pdfjs-dist/build/pdf.min.mjs';
-import { drawAnnot, hitTest, bbox, moveAnnot, textMetrics } from './geometry.js';
+import { drawAnnot, hitTest, bbox, moveAnnot, textMetrics, clearImageCache } from './geometry.js';
 import { buildPdf } from './export.js';
 import { BRAND } from './brand.js';
 import { inspectTextObjects } from './pdf-engine.js';
 import { t, setLanguage, applyTranslations } from './i18n.js';
 import { setupOcr } from './ocr-ui.js';
+import { EditHistory } from './history.js';
+import { createInlineEditor } from './inline-editor.js';
+import { createDesktop } from './desktop.js';
+import { createSearch } from './search.js';
+import { createImages } from './images.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   '../node_modules/pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url
@@ -38,6 +43,8 @@ const S = {
 };
 S.savedAnnots = '{}';
 S.saving = false;
+const history = new EditHistory(S);
+let inlineEditor, desktop, search, ocrController, images;
 
 // ---------- yardımcılar ----------
 let toastTimer;
@@ -57,17 +64,17 @@ function persist() {
   try {
     const annots = draftAnnotations();
     const has = Object.values(annots).some(l => l.length);
-    if (has) localStorage.setItem(storageKey(), JSON.stringify(annots));
+    if (has) { localStorage.setItem(storageKey(), JSON.stringify(annots)); localStorage.setItem(storageKey() + ':fingerprint', S.fingerprint); }
     else localStorage.removeItem(storageKey());
-  } catch { /* depolama dolu olabilir */ }
+  } catch { if(!S.storageWarning){S.storageWarning=true;toast(t('Taslak saklanamadı. Değişikliklerini PDF olarak kaydet.'), true);} }
 }
 
 function updateButtons() {
   const has = !!S.pdf;
-  $('btnSave').disabled = !has || S.saving;
-  $('btnSaveAs').disabled = !has || S.saving;
+  $('btnSave').disabled = !has || S.saving || S.ocrApplying;
+  $('btnSaveAs').disabled = !has || S.saving || S.ocrApplying;
   $('btnPages').disabled = !has || S.saving;
-  $('btnOCR').disabled = !has || S.saving || S.ocrRunning;
+  $('btnOCR').disabled = !has || S.saving;
   $('btnUndo').disabled = !S.undo.length;
   $('btnRedo').disabled = !S.redo.length;
   $('pageNum').disabled = !has;
@@ -78,6 +85,7 @@ function updateButtons() {
   $('documentStatus').textContent = !has ? t('Bir PDF açarak başlayabilirsin.') :
     S.saving ? t('PDF kaydediliyor…') :
     `${S.name}.pdf · ${t(edited ? 'Taslak notlar var · PDF olarak kaydet' : S.savedPath ? 'PDF kaydedildi' : 'PDF açık')}`;
+  desktop?.refresh();
 }
 
 function annotationSnapshot() {
@@ -85,7 +93,7 @@ function annotationSnapshot() {
 }
 
 function draftAnnotations() {
-  if (!S.editor) return S.annots;
+  if (!S.editor) return inlineEditor?.draft(S.annots) || S.annots;
   const annots = structuredClone(S.annots);
   const { page, obj, ta, isNew } = S.editor;
   const list = annots[page] ||= [];
@@ -100,17 +108,15 @@ function draftAnnotations() {
 }
 
 // Değişiklikten ÖNCE çağrılır: geri alma için anlık görüntü tutar.
-function pushHistory() {
-  S.undo.push(JSON.stringify(S.annots));
-  if (S.undo.length > 100) S.undo.shift();
-  S.redo = [];
-}
+function pushHistory() { history.checkpoint(); }
 
 function afterChange() {
   persist();
   syncPagePlan();
   updateButtons();
   scheduleContentPreview();
+  search?.refresh();
+  desktop?.invalidateThumbnails();
 }
 
 let previewGeneration = 0;
@@ -142,6 +148,7 @@ function scheduleContentPreview() {
       S.previewTask?.destroy();
       S.previewTask = task;
       S.previewPdf = pdf;
+      desktop?.invalidateThumbnails();
       for (const i of S.visible) await renderPage(i);
     } catch (error) { task?.destroy(); toast(t('Metin önizlemesi oluşturulamadı: {message}', { message: error.message }), true); }
   }, 100);
@@ -150,6 +157,7 @@ function scheduleContentPreview() {
 async function ensureTextObjects(i) {
   const page = S.pages[i];
   if (!page || page.textObjects) return;
+  await ensurePage(i);
   page.textPromise ||= inspectTextObjects(S.bytes, i).then(objects => {
     if (S.pages[i] !== page) return;
     page.textObjects = objects.map(source => {
@@ -163,53 +171,39 @@ async function ensureTextObjects(i) {
   await page.textPromise;
 }
 
-let selectedSource;
-async function editPdfText(i, point) {
-  const ocr = (S.annots[i] || []).find(a => a.type === 'ocr' && a.mode === 'editable');
-  const ocrLine = ocr?.lines.findIndex(line => point.x >= line.x - 3 && point.x <= line.x + line.w + 3 && point.y >= line.y - 3 && point.y <= line.y + line.h + 3);
-  if (ocrLine !== undefined && ocrLine >= 0) {
-    const line = ocr.lines[ocrLine];
-    selectedSource = { page: i, ocr, ocrLine };
-    $('originalText').value = line.text; $('replacementText').value = line.text;
-    $('replacementSize').value = Math.round(line.size * 100) / 100; $('replacementColor').value = line.color || '#111111';
-    $('editTextDialog').showModal(); $('replacementText').focus(); return;
+async function editPdfText(i, point, selectOnly = false) {
+  commitEditor();
+  const list = S.annots[i] || [];
+  const ocrIndex = list.findIndex(a => a.type === 'ocr');
+  const ocr = list[ocrIndex];
+  const lineIndex = ocr?.lines.findIndex(line => point.x >= line.x - 3 && point.x <= line.x + (line.boxWidth || line.w) + 3 && point.y >= line.y - 3 && point.y <= line.y + Math.max(line.h,line.size*1.2) + 3);
+  if (lineIndex !== undefined && lineIndex >= 0) {
+    if (ocr.mode !== 'editable' && !selectOnly) { pushHistory(); ocr.mode='editable'; afterChange(); }
+    inlineEditor[selectOnly?'select':'start']({page:i,ocrIndex,lineIndex}); return;
   }
-  const page = S.pages[i];
-  await ensureTextObjects(i);
+  const page = S.pages[i]; await ensureTextObjects(i);
   if (S.pages[i] !== page) return;
   const source = page.textObjects?.findLast(item => {
-    const b = item.box;
-    return point.x >= b.x - 3 && point.x <= b.x + b.w + 3 && point.y >= b.y - 3 && point.y <= b.y + b.h + 3;
+    const replacement = list.find(a=>a.type==='replaceText' && a.source.index===item.index);
+    const b = replacement?.moved ? {x:replacement.x,y:replacement.y,w:replacement.boxWidth,h:replacement.size*1.2} : item.box;
+    return point.x >= b.x-3 && point.x <= b.x+b.w+3 && point.y >= b.y-3 && point.y <= b.y+b.h+3;
   });
-  if (!source) { toast(t('Burada metin bulunamadı. OCR · Metin tanı ile taramadaki yazıları tanıyabilirsin.')); return; }
-  if (!source.editable) { toast(t('Bu metnin dönüşümü desteklenmiyor.'), true); return; }
-  const existing = (S.annots[i] || []).find(a => a.type === 'replaceText' && a.source.index === source.index);
-  selectedSource = { page: i, source, existing };
-  $('originalText').value = source.text;
-  $('replacementText').value = existing?.text ?? source.text;
-  $('replacementSize').value = existing?.size ?? Math.round(source.size * 100) / 100;
-  $('replacementColor').value = existing?.color ?? source.color;
-  $('editTextDialog').showModal();
-  $('replacementText').focus();
+  if (!source) { if(!selectOnly)await ocrController.recognizePage(i); return; }
+  if(source.opacity<.05){if(!selectOnly)await ocrController.recognizePage(i);return;}
+  if (!source.editable) { toast(t('Bu metnin dönüşümü desteklenmiyor.'),true); return; }
+  inlineEditor[selectOnly?'select':'start']({page:i,source});
 }
 
 function restore(json) {
   S.annots = JSON.parse(json);
   S.sel = null;
+  S.contentSelection = null;
   redrawAll();
   afterChange();
 }
 
-function undo() {
-  if (!S.undo.length) return;
-  S.redo.push(JSON.stringify(S.annots));
-  restore(S.undo.pop());
-}
-function redo() {
-  if (!S.redo.length) return;
-  S.undo.push(JSON.stringify(S.annots));
-  restore(S.redo.pop());
-}
+function undo() { commitEditor(); const value=history.step('undo'); if(value) restore(JSON.stringify(value)); }
+function redo() { commitEditor(); const value=history.step('redo'); if(value) restore(JSON.stringify(value)); }
 
 // ---------- sayfa çizimi ----------
 function redrawPage(i) {
@@ -227,10 +221,11 @@ function redrawPage(i) {
     drawAnnot(ctx, a);
   }
   if (S.cur && S.cur.page === i) drawAnnot(ctx, S.cur.obj);
+  if (S.searchHit?.page === i) { const b=S.searchHit.box; ctx.save(); ctx.fillStyle='#ffd45e66'; ctx.fillRect(b.x,b.y,b.w,b.h); ctx.strokeStyle='#bd8f18'; ctx.lineWidth=1/S.scale; ctx.strokeRect(b.x,b.y,b.w,b.h); ctx.restore(); }
   if (S.tool === 'editText') {
-    ctx.save(); ctx.strokeStyle = '#4f8cff'; ctx.lineWidth = 1 / S.scale;
+    ctx.save(); ctx.strokeStyle = '#2469b455'; ctx.lineWidth = 1 / S.scale;
     for (const source of p.textObjects || []) { if (source.editable) { const b = source.box; ctx.strokeRect(b.x - 2, b.y - 2, b.w + 4, b.h + 4); } }
-    for (const a of S.annots[i] || []) if (a.type === 'ocr' && a.mode === 'editable') {
+    for (const a of S.annots[i] || []) if (a.type === 'ocr') {
       for (const line of a.lines) if (line.text) ctx.strokeRect(line.x - 2, line.y - 2, line.w + 4, line.h + 4);
     }
     ctx.restore();
@@ -240,16 +235,38 @@ function redrawPage(i) {
     ctx.save();
     ctx.strokeStyle = '#4f8cff';
     ctx.lineWidth = 1.5 / S.scale;
-    ctx.setLineDash([5 / S.scale, 4 / S.scale]);
+    ctx.setLineDash([]);
     ctx.strokeRect(b.x - 3, b.y - 3, b.w + 6, b.h + 6);
+    ctx.restore();
+  }
+  if(S.contentSelection?.page===i){
+    const object=S.contentSelection.object,b={x:object.x,y:object.y,w:object.boxWidth,h:object.size*(object.leading||1.2)};
+    ctx.save();ctx.strokeStyle='#2469b4';ctx.fillStyle='#fff';ctx.lineWidth=1/S.scale;
+    ctx.strokeRect(b.x,b.y,b.w,b.h);
+    for(const [x,y] of [[b.x,b.y],[b.x+b.w,b.y],[b.x,b.y+b.h],[b.x+b.w,b.y+b.h]]){ctx.fillRect(x-2/S.scale,y-2/S.scale,4/S.scale,4/S.scale);ctx.strokeRect(x-2/S.scale,y-2/S.scale,4/S.scale,4/S.scale);}
     ctx.restore();
   }
 }
 function redrawAll() { S.pages.forEach((_, i) => redrawPage(i)); }
 
+async function ensurePage(i) {
+  const record = S.pages[i], pdf = S.pdf;
+  if (!record || record.loaded) return;
+  record.loadPromise ||= pdf.getPage(i+1).then(page => {
+    if (S.pdf !== pdf || S.pages[i] !== record) return;
+    record.sourcePage=page; record.baseVp=page.getViewport({scale:1}); record.loaded=true;
+    const rotation=pagePlan().find(entry=>entry.source===i)?.rotation || 0;
+    record.vp=record.baseVp.clone({rotation:(record.baseVp.rotation+rotation)%360});
+    record.el.style.width=record.vp.width*S.scale+'px'; record.el.style.height=record.vp.height*S.scale+'px';
+  });
+  await record.loadPromise;
+}
+
 async function renderPage(i) {
   const p = S.pages[i];
   if (!p || !S.pdf) return;
+  await ensurePage(i);
+  if (S.pages[i] !== p) return;
   if (p.renderedScale === S.scale && p.pdfCanvas.width) { redrawPage(i); return; }
   const version = p.renderVersion = (p.renderVersion || 0) + 1;
   const scale = S.scale;
@@ -274,7 +291,7 @@ async function renderPage(i) {
   try {
     await task.promise;
   } catch (e) {
-    if (e?.name !== 'RenderingCancelledException') console.error(e);
+    if (e?.name !== 'RenderingCancelledException' && !p.renderError) {p.renderError=true;toast(t('Sayfa {number} görüntülenemedi.',{number:i+1}),true);}
     return;
   }
   if (version !== p.renderVersion || S.pages[i] !== p) return;
@@ -322,6 +339,7 @@ function layoutPages() {
     p.el.style.height = p.vp.height * S.scale + 'px';
   });
   $('zoomLabel').textContent = Math.round(S.scale * 100) + '%';
+  inlineEditor?.position();
 }
 
 let zoomTimer;
@@ -348,6 +366,8 @@ function goToPage(n) {
   S.pages[entries[n - 1]?.source]?.el.scrollIntoView({ block: 'start' });
   S.current = n;
   $('pageNum').value = n;
+  desktop?.current();
+  refreshVisiblePages();
 }
 
 let scrollRaf = 0;
@@ -360,7 +380,7 @@ viewer.addEventListener('scroll', () => {
     for (let i = 0; i < entries.length; i++) {
       const r = S.pages[entries[i].source].el.getBoundingClientRect();
       if (r.bottom >= probe) {
-        if (S.current !== i + 1) { S.current = i + 1; $('pageNum').value = i + 1; }
+        if (S.current !== i + 1) { S.current = i + 1; $('pageNum').value = i + 1; desktop?.current(); }
         break;
       }
     }
@@ -401,6 +421,7 @@ async function loadPath(path) {
 
   // eskiyi temizle
   observer.disconnect();
+  clearImageCache();S.storageWarning=false;
   S.visible.clear();
   S.pages.forEach((p) => p.renderTask?.cancel());
   pagesEl.replaceChildren();
@@ -413,18 +434,27 @@ async function loadPath(path) {
   S.task?.destroy();
 
   const info = await window.api.pathInfo(path);
+  const fingerprint=[...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(value=>value.toString(16).padStart(2,'0')).join('');
   Object.assign(S, {
-    pdf, task, bytes, path, name: info.name, dir: info.dir, savedPath: null,
+    pdf, task, bytes, fingerprint, path, name: info.name, dir: info.dir, savedPath: null,
     pages: [], undo: [], redo: [], sel: null, cur: null, annots: {}, savedAnnots: '{}'
   });
   try {
     const raw = localStorage.getItem(storageKey());
-    if (raw) S.annots = JSON.parse(raw);
-  } catch { /* bozuk kayıt — yok say */ }
+    if (raw) {
+      const fingerprint=localStorage.getItem(storageKey()+':fingerprint');
+      if (!fingerprint || fingerprint===S.fingerprint || fingerprint===pdf.fingerprints[0]) S.annots=JSON.parse(raw);
+      else toast(t('Dosya değişmiş. Önceki taslak bu belgeye uygulanmadı.'),true);
+    }
+  } catch { toast(t('Önceki taslak okunamadı.'),true); }
 
+  const firstPage = await pdf.getPage(1);
+  const estimatedViewport = firstPage.getViewport({scale:1});
+  ocrController?.reset();
+  search?.reset();S.contentSelection=null;
   for (let i = 0; i < pdf.numPages; i++) {
-    const page = await pdf.getPage(i + 1);
-    const vp = page.getViewport({ scale: 1 });
+    const page = i===0 ? firstPage : null;
+    const vp = page ? estimatedViewport : estimatedViewport.clone();
     const el = document.createElement('div');
     el.className = 'page';
     el.dataset.i = i;
@@ -434,13 +464,13 @@ async function loadPath(path) {
     overlay.className = 'overlay';
     el.append(pdfCanvas, overlay);
     pagesEl.append(el);
-    const rec = { vp, baseVp: vp, el, pdfCanvas, overlay, pdfPage: page, renderTask: null, renderedScale: null };
+    const rec = { vp, baseVp: vp, el, pdfCanvas, overlay, pdfPage: page, sourcePage:page, loaded:!!page, renderTask: null, renderedScale: null };
     S.pages.push(rec);
     bindOverlay(i, overlay);
   }
 
   document.body.classList.add('has-doc');
-  document.title = S.name + ' — Ders PDF Editor';
+  document.title = S.name + ' — EPDF';
   $('pageTotal').textContent = '/ ' + pdf.numPages;
   $('pageNum').max = pdf.numPages;
   S.planSignature = null;
@@ -466,7 +496,7 @@ async function pickAndOpen() {
 
 // ---------- kaydetme ----------
 async function save(asNew) {
-  if (!S.pdf || S.saving) return;
+  if (!S.pdf || S.saving || S.ocrApplying) return;
   commitEditor();
   S.saving = true;
   const snapshot = annotationSnapshot();
@@ -504,9 +534,11 @@ function setTool(tool) {
   commitEditor();
   S.tool = tool;
   S.sel = null;
-  document.querySelectorAll('.tool').forEach(b => b.classList.toggle('active', b.dataset.tool === tool));
+  S.contentSelection = null;
+  document.querySelectorAll('.tool').forEach(b => {b.classList.toggle('active', b.dataset.tool === tool);b.setAttribute('aria-pressed',String(b.dataset.tool===tool));});
   syncColorUI();
-  const cursor = { select: 'default', text: 'text', eraser: 'cell' }[tool] || 'crosshair';
+  desktop?.refresh();
+  const cursor = { select: 'default', text: 'text', editText:'text', view:'grab', eraser: 'cell' }[tool] || 'crosshair';
   document.querySelectorAll('canvas.overlay').forEach(c => { c.style.cursor = cursor; });
   redrawAll();
   if (tool === 'editText') for (const i of S.visible) ensureTextObjects(i);
@@ -567,16 +599,29 @@ function bindOverlay(i, el) {
     if (S.editor) { commitEditor(); if (S.tool === 'text') return; }
     const p = pagePoint(e, el);
     const t = S.tool;
-    if (t === 'editText') { editPdfText(i, p); return; }
+    if (t === 'editText') { e.preventDefault(); editPdfText(i, p); return; }
+    if (t === 'view') { drag={pan:true,x:e.clientX,y:e.clientY,left:viewer.scrollLeft,top:viewer.scrollTop}; el.setPointerCapture(e.pointerId); el.style.cursor='grabbing'; e.preventDefault(); return; }
+    if (t === 'image') {images.place(i,p);e.preventDefault();return;}
 
     if (t === 'select') {
       const hit = topHit(i, p.x, p.y);
+      const selected=S.contentSelection;
+      if(!hit && selected?.page===i){
+        const obj=selected.object;
+        if(p.x>=obj.x-5 && p.x<=obj.x+obj.boxWidth+5 && p.y>=obj.y-5 && p.y<=obj.y+obj.size*(obj.leading||1.2)+5){
+          drag={content:true,last:p,moved:false,resize:Math.abs(p.x-obj.x-obj.boxWidth)<6/S.scale};
+          el.setPointerCapture(e.pointerId);e.preventDefault();return;
+        }
+      }
+      S.contentSelection=null;
       S.sel = hit ? { page: i, obj: hit } : null;
       redrawAll();
+      desktop?.refresh();
       if (hit) {
         drag = { last: p, moved: false };
         el.setPointerCapture(e.pointerId);
       }
+      else editPdfText(i,p,true);
       return;
     }
     if (t === 'text') {
@@ -608,7 +653,16 @@ function bindOverlay(i, el) {
 
   el.addEventListener('pointermove', (e) => {
     if (!drag) return;
+    if (drag.pan) {viewer.scrollLeft=drag.left-(e.clientX-drag.x);viewer.scrollTop=drag.top-(e.clientY-drag.y);return;}
     const p = pagePoint(e, el);
+    if(drag.content && S.contentSelection){
+      if(!drag.moved){pushHistory();drag.moved=true;}
+      inlineEditor.mutateSelection(obj=>{
+        if(drag.resize)obj.boxWidth=Math.max(10,p.x-obj.x);
+        else {obj.x+=p.x-drag.last.x;obj.y+=p.y-drag.last.y;obj.moved=true;}
+      },false);
+      drag.last=p;return;
+    }
     if (S.tool === 'select' && S.sel) {
       if (!drag.moved) { pushHistory(); drag.moved = true; }
       moveAnnot(S.sel.obj, p.x - drag.last.x, p.y - drag.last.y);
@@ -631,6 +685,7 @@ function bindOverlay(i, el) {
 
   const finish = () => {
     if (!drag) return;
+    if(drag.pan) el.style.cursor='grab';
     const wasCur = S.cur;
     if (S.tool === 'select' && drag.moved) afterChange();
     if (wasCur) {
@@ -654,6 +709,7 @@ function bindOverlay(i, el) {
     const p = pagePoint(e, el);
     const hit = topHit(i, p.x, p.y);
     if (hit?.type === 'text') startEditor(i, hit);
+    else editPdfText(i,p);
   });
 }
 
@@ -673,14 +729,21 @@ function eraseAt(i, p) {
 function startEditor(pageIdx, existing, x, y) {
   commitEditor();
   const p = S.pages[pageIdx];
-  const obj = existing || { type: 'text', color: S.colors.text, size: S.fontSize, x, y, text: '' };
+  const obj = existing || { ...S.textStyle, type: 'text', color: S.colors.text, size: S.fontSize, x, y, text: '' };
   const ta = document.createElement('textarea');
   ta.className = 'textedit';
   ta.value = obj.text;
   ta.spellcheck = false;
   const place = () => {
-    ta.style.left = obj.x * S.scale + 'px';
-    ta.style.top = obj.y * S.scale + 'px';
+    const position=p.vp.convertToViewportPoint(...p.baseVp.convertToPdfPoint(obj.x,obj.y));
+    ta.style.left = position[0] * S.scale + 'px';
+    ta.style.top = position[1] * S.scale + 'px';
+    ta.style.transform='rotate('+(p.vp.rotation-p.baseVp.rotation)+'deg)';ta.style.transformOrigin='0 0';
+    ta.style.fontFamily=obj.font || 'Arial';
+    ta.style.fontWeight=obj.fontStyle?.includes('bold')?'bold':'normal';ta.style.fontStyle=obj.fontStyle?.includes('italic')?'italic':'normal';
+    ta.style.lineHeight=obj.leading || 1.2;
+    ta.style.letterSpacing=(obj.spacing || 0)*S.scale+'px';
+    ta.style.textAlign=obj.align || 'left';
     ta.style.fontSize = obj.size * S.scale + 'px';
     ta.style.color = obj.color;
     const m = textMetrics({ ...obj, text: ta.value || ' ' });
@@ -696,13 +759,14 @@ function startEditor(pageIdx, existing, x, y) {
   });
   ta.addEventListener('blur', () => commitEditor());
   p.el.append(ta);
-  S.editor = { page: pageIdx, obj, ta, isNew: !existing, before: existing ? JSON.stringify(S.annots) : null };
+  S.editor = { page: pageIdx, obj, ta, place, isNew: !existing, before: existing ? JSON.stringify(S.annots) : null };
   redrawPage(pageIdx);
   ta.focus();
   ta.select();
 }
 
 function commitEditor() {
+  inlineEditor?.commit();
   const ed = S.editor;
   if (!ed) return;
   S.editor = null;
@@ -716,9 +780,8 @@ function commitEditor() {
       list.push(ed.obj);
       afterChange();
     }
-  } else if (text !== ed.obj.text) {
-    S.undo.push(ed.before);
-    S.redo = [];
+  } else if (text !== ed.obj.text || JSON.stringify(S.annots) !== ed.before) {
+    history.checkpoint(ed.before);
     if (text) ed.obj.text = text;
     else list.splice(list.indexOf(ed.obj), 1);
     afterChange();
@@ -731,17 +794,21 @@ const KEYS = { d: 'editText', v: 'select', p: 'pen', h: 'highlighter', b: 'hlrec
   t: 'text', l: 'line', a: 'arrow', r: 'rect', o: 'ellipse', e: 'eraser' };
 
 window.addEventListener('keydown', (e) => {
-  if (document.querySelector('dialog[open]')) return;
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (document.querySelector('dialog:modal')) return;
+  if (['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName) || e.target.isContentEditable) return;
   const mod = e.ctrlKey || e.metaKey;
   const k = e.key.toLowerCase();
-  if (mod && k === 'o') { e.preventDefault(); pickAndOpen(); }
+  if (mod && k === 'f') {e.preventDefault();search.open();}
+  else if (mod && k === 'o') { e.preventDefault(); pickAndOpen(); }
   else if (mod && k === 's') { e.preventDefault(); save(e.shiftKey); }
   else if (mod && k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
   else if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); redo(); }
   else if (mod && (k === '=' || k === '+')) { e.preventDefault(); setScale(S.scale * 1.15); }
   else if (mod && k === '-') { e.preventDefault(); setScale(S.scale / 1.15); }
   else if (mod && k === '0') { e.preventDefault(); fitWidth(); }
+  else if (!mod && (k==='delete'||k==='backspace') && S.contentSelection) {e.preventDefault();inlineEditor.mutateSelection(obj=>{obj.text='';});S.contentSelection=null;updateButtons();redrawAll();}
+  else if (!mod && ['arrowleft','arrowright','arrowup','arrowdown'].includes(k) && S.contentSelection) {e.preventDefault();const delta=e.shiftKey?10:1;inlineEditor.mutateSelection(obj=>{obj.x+=k==='arrowleft'?-delta:k==='arrowright'?delta:0;obj.y+=k==='arrowup'?-delta:k==='arrowdown'?delta:0;obj.moved=true;});}
+  else if (mod && k==='c' && S.contentSelection) {e.preventDefault();const obj=S.contentSelection.object;S.clipboard={type:'text',text:obj.text,x:obj.x,y:obj.y,size:obj.size,color:obj.color,font:obj.font,fontStyle:obj.fontStyle};}
   else if (!mod && (k === 'delete' || k === 'backspace') && S.sel) {
     pushHistory();
     const list = S.annots[S.sel.page];
@@ -751,7 +818,10 @@ window.addEventListener('keydown', (e) => {
     afterChange();
     redrawPage(pg);
   }
-  else if (k === 'escape') { S.sel = null; redrawAll(); }
+  else if (mod && k==='c' && S.sel) {e.preventDefault();S.clipboard=structuredClone(S.sel.obj);}
+  else if (mod && k==='v' && S.clipboard && S.pdf) {e.preventDefault();pushHistory();const obj=structuredClone(S.clipboard);moveAnnot(obj,12,12);const page=pagePlan()[S.current-1].source;listOf(page).push(obj);S.contentSelection=null;S.sel={page,obj};afterChange();redrawPage(page);}
+  else if (['arrowleft','arrowright','arrowup','arrowdown'].includes(k) && S.sel) {e.preventDefault();pushHistory();const distance=e.shiftKey?10:1;moveAnnot(S.sel.obj,k==='arrowleft'?-distance:k==='arrowright'?distance:0,k==='arrowup'?-distance:k==='arrowdown'?distance:0);afterChange();redrawPage(S.sel.page);}
+  else if (k === 'escape') { S.sel = null; setTool('select'); redrawAll(); }
   else if (!mod && S.pdf && KEYS[k]) setTool(KEYS[k]);
   else if (k === 'pagedown') goToPage(S.current + 1);
   else if (k === 'pageup') goToPage(S.current - 1);
@@ -816,7 +886,7 @@ function renderPageList() {
     const row = document.createElement('div'); row.className = 'page-row';
     const label = document.createElement('span'); label.textContent = t('Sayfa {number} · Orijinal {source} · {rotation}°', { number: position + 1, source: entry.source + 1, rotation: entry.rotation });
     row.append(label);
-    for (const [action, label, disabled] of [['up', '↑', position === 0], ['down', '↓', position === entries.length - 1], ['rotate', 'Döndür', false], ['delete', 'Sil', entries.length === 1]]) {
+    for (const [action, label, disabled] of [['up', 'Yukarı', position === 0], ['down', 'Aşağı', position === entries.length - 1], ['rotate', 'Döndür', false], ['delete', 'Sil', entries.length === 1]]) {
       const button = document.createElement('button'); button.className = 'btn'; button.textContent = t(label); button.disabled = disabled;
       button.dataset.pageAction = action; button.dataset.position = position;
       button.setAttribute('aria-label', t(action === 'up' ? 'Sayfayı yukarı taşı' : action === 'down' ? 'Sayfayı aşağı taşı' : action === 'rotate' ? 'Sayfayı döndür' : 'Sayfayı sil'));
@@ -835,29 +905,6 @@ function renderPageList() {
   });
 }
 $('btnPages').onclick = () => { showDialog('pagesDialog'); renderPageList(); };
-$('btnApplyText').onclick = () => {
-  if (!selectedSource) return;
-  const { page, source, existing } = selectedSource;
-  const size = Number($('replacementSize').value);
-  if (!Number.isFinite(size) || size < 1 || size > 200) { $('replacementSize').reportValidity(); return; }
-  const text = $('replacementText').value.trimEnd();
-  const color = $('replacementColor').value;
-  pushHistory();
-  if (selectedSource.ocr) {
-    Object.assign(selectedSource.ocr.lines[selectedSource.ocrLine], { text, size, color });
-    selectedSource = null; $('editTextDialog').close(); afterChange();
-    toast(t('Metin değiştirildi. PDF olarak kaydetmeyi unutma.')); return;
-  }
-  const list = listOf(page);
-  if (existing) list.splice(list.indexOf(existing), 1);
-  if (text !== source.text || size !== source.size || color !== source.color) {
-    list.push({ type: 'replaceText', source, text, size, color });
-  }
-  selectedSource = null;
-  $('editTextDialog').close();
-  afterChange();
-  toast(t('Metin değiştirildi. PDF olarak kaydetmeyi unutma.'));
-};
 $('btnAbout').onclick = () => showDialog('aboutDialog');
 $('btnSupport').onclick = () => showDialog('aboutDialog');
 $('btnHelp').onclick = () => showDialog('helpDialog');
@@ -903,11 +950,11 @@ $('btnDownloadUpdate').onclick = async () => renderUpdates(await window.api.down
 $('btnInstallUpdate').onclick = () => window.api.installUpdate();
 $('btnReleasePage').onclick = () => window.api.openExternal('https://github.com/AlgoWolfx/EPDF/releases');
 window.api.onUpdateState(renderUpdates);
-window.api.appVersion().then(version => { appVersion = version; $('appVersion').textContent = `Ders PDF Editor · ${t('Sürüm {version}', { version })}`; renderUpdates(); });
+window.api.appVersion().then(version => { appVersion = version; $('appVersion').textContent = `EPDF · ${t('Sürüm {version}', { version })}`; renderUpdates(); });
 $('languageSelect').onchange = event => {
   setLanguage(event.target.value); updateButtons(); renderUpdates();
   if ($('pagesDialog').open) renderPageList();
-  $('appVersion').textContent = `Ders PDF Editor · ${t('Sürüm {version}', { version: appVersion })}`;
+  $('appVersion').textContent = `EPDF · ${t('Sürüm {version}', { version: appVersion })}`;
 };
 applyTranslations();
 $('btnOpen').onclick = pickAndOpen;
@@ -922,28 +969,21 @@ $('btnFit').onclick = fitWidth;
 $('btnPrev').onclick = () => goToPage(S.current - 1);
 $('btnNext').onclick = () => goToPage(S.current + 1);
 $('pageNum').addEventListener('change', (e) => goToPage(Number(e.target.value) || 1));
-$('btnNight').onclick = () => {
-  S.night = !S.night;
-  document.body.classList.toggle('night', S.night);
-  $('btnNight').classList.toggle('active', S.night);
-};
 $('width').addEventListener('input', (e) => { S.width = Number(e.target.value); });
-$('fontSize').addEventListener('input', (e) => {
-  S.fontSize = Math.min(96, Math.max(6, Number(e.target.value) || 16));
-  if (S.tool === 'select' && S.sel?.obj.type === 'text') {
-    pushHistory();
-    S.sel.obj.size = S.fontSize;
-    redrawPage(S.sel.page);
-    afterChange();
-  }
-});
-document.querySelectorAll('.tool').forEach(b => b.addEventListener('click', () => setTool(b.dataset.tool)));
+$('fontSize').addEventListener('input',e=>{S.fontSize=Math.min(200,Math.max(1,Number(e.target.value)||16));});
+$('btnFitPage').onclick=()=>{const page=S.pages[pagePlan()[S.current-1]?.source];if(page)setScale(Math.min((viewer.clientWidth-48)/page.vp.width,(viewer.clientHeight-40)/page.vp.height));};
+document.querySelectorAll('.tool').forEach(b => b.addEventListener('click', () => b.dataset.tool==='image'?images.pick():setTool(b.dataset.tool)));
 
 buildSwatches();
-setupOcr({ state: S, pagePlan, commitEditor, pushHistory, afterChange, updateButtons, toast });
+inlineEditor=createInlineEditor({state:S,history,changed:afterChange,redraw:redrawPage,update:()=>{persist();updateButtons();},toast});
+images=createImages({state:S,history,changed:afterChange,redraw:redrawPage,tool:setTool,toast});
+desktop=createDesktop({state:S,plan:pagePlan,ensurePage,navigate:goToPage,inline:inlineEditor,images});
+search=createSearch({state:S,plan:pagePlan,navigate:goToPage,ensurePage,redraw:redrawAll});
+ocrController=setupOcr({ state: S, pagePlan, commitEditor, pushHistory, afterChange, updateButtons, toast, ensurePage });
 syncColorUI();
 updateButtons();
 window.api.onOpenFile(openPath);
+window.addEventListener('epdf-image-ready',()=>{redrawAll();desktop.invalidateThumbnails();});
 window.addEventListener('resize', () => {
   clearTimeout(zoomTimer);
   zoomTimer = setTimeout(() => { for (const i of S.visible) renderPage(i); }, 150);

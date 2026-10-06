@@ -8,7 +8,7 @@ EPDF uses the following open source components. Their copyright notices and lice
 - PDF.js (pdfjs-dist) — Apache-2.0; see `licenses/PDFjs.txt`.
 - electron-updater — MIT; see `licenses/electron-updater.txt`.
 - Tesseract.js and Tesseract.js-core — Apache-2.0; see `licenses/Tesseract.js.txt` and `licenses/Tesseract-core.txt`.
-- Bundled English / Turkish Tesseract traineddata — Apache-2.0. Packages: `@tesseract.js-data/eng` and `@tesseract.js-data/tur`; see `licenses/Tesseract-data.txt`.
+- Bundled English / Turkish / Portuguese Tesseract traineddata — Apache-2.0. Packages: `@tesseract.js-data/eng`, `@tesseract.js-data/tur` and `@tesseract.js-data/por`; see `licenses/Tesseract-data.txt`.
 - Electron / Chromium — see `LICENSE.electron.txt` and `LICENSES.chromium.html` supplied with Electron binaries.
 
 Dependencies retain their own licenses. These notices do not define a source-code license for EPDF.

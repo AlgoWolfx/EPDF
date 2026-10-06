@@ -9,6 +9,10 @@
 
 Türkçe metinler kaynak dil olarak kullanılır. İngilizce karşılıkları `renderer/locales/en.json` içindedir. Yeni dil için aynı anahtarlarla bir JSON dosyası ekleyip `renderer/i18n.js`, `main.js` dil seçimi ve `languageSelect` seçeneklerini güncelleyin. Kullanıcının PDF metnini çeviri sözlüğüne eklemeyin.
 
+## OCR dili ekleme
+
+`@tesseract.js-data/<dil>` bağımlılığını ekleyin. `renderer/ocr.js` içindeki dil kayıtlarını, `main.js` yerel model protokolü izin listesini, OCR dil seçeneklerini ve `package.json` paketleme dosyalarını güncelleyin. `4.0.0_best_int` modeli ve ilgili üçüncü taraf lisansı pakette bulunmalı. Testi HTTP/HTTPS engelliyken hem kaynak hem paketlenmiş uygulamada çalıştırın.
+
 ## Sürüm yayınlama
 
 ```powershell

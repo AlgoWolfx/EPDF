@@ -6,13 +6,13 @@ export const LINE_HEIGHT = 1.2;
 // Textarea içindeki ilk satırın taban çizgisi (Arial) — ekranla PDF aynı yerde çıksın diye.
 export const BASELINE = 0.9465;
 
-const measureCtx = document.createElement('canvas').getContext('2d');
+const measureCtx = (typeof document === 'undefined' ? new OffscreenCanvas(1,1) : document.createElement('canvas')).getContext('2d');
 
 export function textMetrics(a) {
-  measureCtx.font = `${a.size}px ${FONT}`;
+  measureCtx.font = `${a.fontStyle?.includes('italic')?'italic ':''}${a.fontStyle?.includes('bold')?'bold ':''}${a.size}px ${a.font || FONT}`;
   const lines = a.text.split('\n');
-  const w = Math.max(1, ...lines.map(l => measureCtx.measureText(l).width));
-  return { lines, w, h: lines.length * a.size * LINE_HEIGHT };
+  const w = a.boxWidth || Math.max(1, ...lines.map(l => measureCtx.measureText(l).width + Math.max(0,l.length-1)*(a.spacing||0)));
+  return { lines, w, h: lines.length * a.size * (a.leading || LINE_HEIGHT) };
 }
 
 export function effWidth(a) {
@@ -69,6 +69,12 @@ export function polylines(a) {
 }
 
 export function bbox(a) {
+  if(a.type==='image'){
+    const radians=(a.rotation||0)*Math.PI/180;
+    const corners=[[0,0],[a.w,0],[0,a.h],[a.w,a.h]].map(([x,y])=>[a.x+x*Math.cos(radians)-y*Math.sin(radians),a.y+x*Math.sin(radians)+y*Math.cos(radians)]);
+    const x=Math.min(...corners.map(p=>p[0])),y=Math.min(...corners.map(p=>p[1]));
+    return {x,y,w:Math.max(...corners.map(p=>p[0]))-x,h:Math.max(...corners.map(p=>p[1]))-y};
+  }
   if (a.type === 'text') {
     const m = textMetrics(a);
     return { x: a.x, y: a.y, w: m.w, h: m.h };
@@ -91,7 +97,7 @@ function distToSeg(px, py, ax, ay, bx, by) {
 }
 
 export function hitTest(a, x, y, tol) {
-  if (a.type === 'text') {
+  if (a.type === 'text' || a.type === 'image') {
     const b = bbox(a);
     return x >= b.x - tol && x <= b.x + b.w + tol && y >= b.y - tol && y <= b.y + b.h + tol;
   }
@@ -113,20 +119,37 @@ export function hitTest(a, x, y, tol) {
 
 export function moveAnnot(a, dx, dy) {
   if (a.pts) a.pts = a.pts.map(([x, y]) => [x + dx, y + dy]);
-  else if (a.type === 'text') { a.x += dx; a.y += dy; }
+  else if (a.type === 'text' || a.type === 'image') { a.x += dx; a.y += dy; }
   else { a.x1 += dx; a.x2 += dx; a.y1 += dy; a.y2 += dy; }
 }
 
 // Tuval bağlamı sayfa birimine ölçeklenmiş olarak verilir.
 export function drawAnnot(ctx, a) {
+  if(a.type==='image'){
+    let image=imageCache.get(a.data);
+    if(!image){
+      image=new Image();image.src=a.data;image.onload=()=>{
+        let pixels=[...imageCache.values()].reduce((sum,item)=>sum+item.naturalWidth*item.naturalHeight,0);
+        for(const [key,item] of imageCache){if(pixels<=32e6||imageCache.size<=1)break;if(item===image)continue;pixels-=item.naturalWidth*item.naturalHeight;imageCache.delete(key);}
+        window.dispatchEvent(new Event('epdf-image-ready'));
+      };imageCache.set(a.data,image);
+    }
+    if(!image.complete||!image.naturalWidth)return;
+    const left=(a.cropLeft||0)/100,top=(a.cropTop||0)/100,right=(a.cropRight||0)/100,bottom=(a.cropBottom||0)/100;
+    ctx.save();ctx.translate(a.x,a.y);ctx.rotate((a.rotation||0)*Math.PI/180);ctx.globalAlpha=a.opacity??1;
+    ctx.drawImage(image,left*image.width,top*image.height,(1-left-right)*image.width,(1-top-bottom)*image.height,0,0,a.w,a.h);ctx.restore();return;
+  }
   if (a.type === 'text') {
-    ctx.font = `${a.size}px ${FONT}`;
+    ctx.font = `${a.fontStyle?.includes('italic')?'italic ':''}${a.fontStyle?.includes('bold')?'bold ':''}${a.size}px ${a.font || FONT}`;
+    ctx.letterSpacing = (a.spacing || 0) + 'px';
+    ctx.textAlign = a.align || 'left';
     ctx.fillStyle = a.color;
     ctx.textBaseline = 'alphabetic';
     a.text.split('\n').forEach((line, i) => {
-      ctx.fillText(line, a.x, a.y + a.size * BASELINE + i * a.size * LINE_HEIGHT);
+      const offset = a.align === 'center' ? (a.boxWidth || textMetrics(a).w)/2 : a.align === 'right' ? (a.boxWidth || textMetrics(a).w) : 0;
+      ctx.fillText(line, a.x + offset, a.y + a.size * BASELINE + i * a.size * (a.leading || LINE_HEIGHT));
     });
-    return;
+    ctx.textAlign='left';ctx.letterSpacing='0px';return;
   }
   const st = styleOf(a);
   ctx.save();
@@ -145,3 +168,5 @@ export function drawAnnot(ctx, a) {
   }
   ctx.restore();
 }
+const imageCache=new Map();
+export function clearImageCache(){imageCache.clear();}
