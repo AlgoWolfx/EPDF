@@ -15,6 +15,15 @@ export function textMetrics(a) {
   return { lines, w, h: lines.length * a.size * (a.leading || LINE_HEIGHT) };
 }
 
+// Temporary editors can grow to reveal text without changing document geometry.
+export function textEditorMetrics(object,text,scale) {
+  const metrics=textMetrics({...object,text:text || ' ',boxWidth:undefined});
+  const boxWidth=(object.boxWidth ?? metrics.w)*scale;
+  const width=Math.max(40,boxWidth,Math.ceil(metrics.w*scale)+4);
+  const offset=(boxWidth-(width-2))*(object.align==='right'?1:object.align==='center'?.5:0);
+  return {width,height:Math.ceil(metrics.h*scale)+4,offset};
+}
+
 export function effWidth(a) {
   return a.type === 'highlighter' ? a.width * 3 + 6 : a.width;
 }

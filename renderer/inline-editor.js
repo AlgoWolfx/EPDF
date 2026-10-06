@@ -1,5 +1,5 @@
 import { t } from './i18n.js';
-import { BASELINE } from './geometry.js';
+import { BASELINE, textEditorMetrics } from './geometry.js';
 
 export function createInlineEditor({state, history, changed, redraw, update, toast}) {
   const $ = id => document.getElementById(id);
@@ -17,8 +17,10 @@ export function createInlineEditor({state, history, changed, redraw, update, toa
     if (!active) return;
     const {page,object,textarea,angle} = active, record = state.pages[page];
     const origin = record.vp.convertToViewportPoint(...record.baseVp.convertToPdfPoint(object.x,object.y));
-    Object.assign(textarea.style,{left:origin[0]*state.scale+'px',top:origin[1]*state.scale+'px',
-      width:Math.max(40,object.boxWidth*state.scale)+'px',height:Math.max(object.size*(object.leading||1.2)*state.scale+4,textarea.value.split('\n').length*object.size*(object.leading||1.2)*state.scale+4)+'px',
+    const {width,height,offset}=textEditorMetrics(object,textarea.value,state.scale);
+    const radians=angle*Math.PI/180;
+    Object.assign(textarea.style,{left:origin[0]*state.scale+offset*Math.cos(radians)+'px',top:origin[1]*state.scale+offset*Math.sin(radians)+'px',
+      width:width+'px',height:height+'px',
       fontFamily:object.font || 'Arial',fontSize:object.size*state.scale+'px',lineHeight:String(object.leading || 1.2),
       fontWeight:object.fontStyle?.includes('bold')?'bold':'normal',fontStyle:object.fontStyle?.includes('italic')?'italic':'normal',
       letterSpacing:(object.spacing || 0)*state.scale+'px',textAlign:object.align || 'left',color:object.color,

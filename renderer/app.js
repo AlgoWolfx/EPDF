@@ -1,5 +1,5 @@
 import * as pdfjsLib from '../node_modules/pdfjs-dist/build/pdf.min.mjs';
-import { drawAnnot, hitTest, bbox, moveAnnot, textMetrics, clearImageCache } from './geometry.js';
+import { drawAnnot, hitTest, bbox, moveAnnot, textEditorMetrics, clearImageCache } from './geometry.js';
 import { buildPdf } from './export.js';
 import { BRAND } from './brand.js';
 import { inspectTextObjects } from './pdf-engine.js';
@@ -746,9 +746,11 @@ function startEditor(pageIdx, existing, x, y) {
     ta.style.textAlign=obj.align || 'left';
     ta.style.fontSize = obj.size * S.scale + 'px';
     ta.style.color = obj.color;
-    const m = textMetrics({ ...obj, text: ta.value || ' ' });
-    ta.style.width = Math.max(40, m.w * S.scale + 16) + 'px';
-    ta.style.height = m.h * S.scale + 2 + 'px';
+    const {width,height,offset}=textEditorMetrics(obj,ta.value,S.scale);
+    const angle=(p.vp.rotation-p.baseVp.rotation)*Math.PI/180;
+    ta.style.left=position[0]*S.scale+offset*Math.cos(angle)+'px';
+    ta.style.top=position[1]*S.scale+offset*Math.sin(angle)+'px';
+    ta.style.width=width+'px';ta.style.height=height+'px';
   };
   place();
   ta.addEventListener('input', () => { place(); persist(); updateButtons(); });
