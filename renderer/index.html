@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data: blob:; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'">
+  <title>Ders PDF Editor</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="brandbar">
+    <div class="brandmark"><span class="brand-symbol" aria-hidden="true">E</span><strong>EGORA DIGITAL</strong><span class="brand-product">Ders PDF Editor</span></div>
+    <div class="brand-actions"><span class="free-badge">Ücretsiz · Çevrimdışı</span><select id="languageSelect" aria-label="Arayüz dili"><option value="tr">Türkçe</option><option value="en">English</option></select><button id="btnUpdates" class="btn">Güncellemeler</button><button id="btnHelp" class="btn">Kullanım rehberi</button><button id="btnAbout" class="btn">Hakkında / Destek</button></div>
+  </div>
+  <header id="toolbar">
+    <div class="group">
+      <button id="btnOpen" class="btn primary" title="PDF aç (Ctrl+O)">📂 Aç</button>
+      <button id="btnSave" class="btn" title="Notlarla birlikte kaydet (Ctrl+S)" disabled>💾 Kaydet</button>
+      <button id="btnSaveAs" class="btn" title="Farklı kaydet (Ctrl+Shift+S)" disabled>Farklı kaydet</button>
+      <button id="btnPages" class="btn" disabled>Sayfalar</button>
+    </div>
+
+    <div class="group">
+      <button id="btnUndo" class="btn icon" title="Geri al (Ctrl+Z)" disabled>↶</button>
+      <button id="btnRedo" class="btn icon" title="Yinele (Ctrl+Y)" disabled>↷</button>
+    </div>
+
+    <div class="group" id="tools">
+      <button class="btn tool" data-tool="editText" title="PDF'in mevcut metnini düzenle (D)">✎ Metni düzenle</button>
+      <button class="btn tool active" data-tool="select" title="Seç / taşı (V) — Delete ile sil">🖱 Seç</button>
+      <button class="btn tool" data-tool="pen" title="Kalem (P)">✎ Kalem</button>
+      <button class="btn tool" data-tool="highlighter" title="Fosforlu kalem (H)">🖍 Fosforlu</button>
+      <button class="btn tool" data-tool="hlrect" title="Vurgu kutusu (B)">▭ Vurgu</button>
+      <button class="btn tool" data-tool="underline" title="Altını çiz (U)">U̲ Alt çizgi</button>
+      <button class="btn tool" data-tool="text" title="Yazı (T)">T Yazı</button>
+      <button class="btn tool" data-tool="line" title="Çizgi (L)">╱ Çizgi</button>
+      <button class="btn tool" data-tool="arrow" title="Ok (A)">➚ Ok</button>
+      <button class="btn tool" data-tool="rect" title="Dikdörtgen (R)">□ Kutu</button>
+      <button class="btn tool" data-tool="ellipse" title="Elips (O)">○ Elips</button>
+      <button class="btn tool" data-tool="eraser" title="Silgi (E)">⌫ Silgi</button>
+    </div>
+
+    <div class="group">
+      <div id="swatches"></div>
+      <input type="color" id="colorPick" title="Özel renk" value="#e63946">
+    </div>
+
+    <div class="group">
+      <label class="lbl" title="Çizgi kalınlığı">Kalınlık
+        <input type="range" id="width" min="1" max="24" value="3">
+      </label>
+      <label class="lbl" title="Yazı boyutu">Yazı
+        <input type="number" id="fontSize" min="6" max="96" value="16">
+      </label>
+    </div>
+
+    <div class="group right">
+      <button id="btnNight" class="btn" title="PDF renklerini ters çevir (göz yormaz)">🌙 Gece</button>
+      <button id="btnZoomOut" class="btn icon" title="Uzaklaştır (Ctrl+-)">−</button>
+      <span id="zoomLabel">100%</span>
+      <button id="btnZoomIn" class="btn icon" title="Yakınlaştır (Ctrl++)">+</button>
+      <button id="btnFit" class="btn" title="Genişliğe sığdır">↔ Sığdır</button>
+      <button id="btnPrev" class="btn icon" title="Önceki sayfa">▲</button>
+      <input type="number" id="pageNum" min="1" value="1" disabled>
+      <span id="pageTotal">/ 0</span>
+      <button id="btnNext" class="btn icon" title="Sonraki sayfa">▼</button>
+    </div>
+  </header>
+
+  <main id="viewer">
+    <div id="empty">
+      <div class="empty-card">
+        <div class="welcome-label">EGORA DIGITAL SUNAR</div>
+        <h1>PDF'lerin üzerinde<br>özgürce çalış.</h1>
+        <p>Not ekle, önemli yerleri vurgula, çiz ve kaydet.<br>PDF'ini buraya sürükle ya da dosya seç.</p>
+        <button id="btnOpen2" class="btn primary large">📂 PDF aç</button>
+        <small>Ücretsiz kullanım · Hesap gerekmez · Dosyaların bilgisayarında kalır</small>
+        <div class="welcome-credit">EGORA DIGITAL ve <strong>Yiğit Osman Bayrak</strong> tarafından geliştirildi.</div>
+        <button id="btnSupport" class="text-button">Faydalı bulduysan bize destek ol ↗</button>
+      </div>
+    </div>
+    <div id="pages"></div>
+  </main>
+
+  <footer class="statusbar"><span id="documentStatus" role="status">Bir PDF açarak başlayabilirsin.</span><span>EGORA DIGITAL · Yiğit Osman Bayrak</span></footer>
+
+  <dialog id="aboutDialog" aria-labelledby="aboutTitle">
+    <div class="dialog-heading"><span class="welcome-label">BİRLİKTE DAHA İYİ</span><button class="btn icon" data-close-dialog aria-label="Pencereyi kapat">×</button></div>
+    <h2 id="aboutTitle">Herkes için ücretsiz.</h2>
+    <p>Ders PDF Editor, <strong>EGORA DIGITAL</strong> ve <strong>Yiğit Osman Bayrak</strong> tarafından geliştirildi. PDF üzerinde çalışmayı herkes için erişilebilir kılmak istiyoruz.</p>
+    <div class="privacy-note">PDF dosyaların ve notların bilgisayarında işlenir. Hesap açman veya dosyalarını bir sunucuya yüklemen gerekmez.</div>
+    <h3>Küçük bir destek, büyük bir motivasyon.</h3>
+    <p>Faydalı bulduysan GitHub'da projeye yıldız verebilir veya Instagram hesaplarımızı takip edebilirsin. Destek tamamen isteğe bağlı; tüm araçları ücretsiz kullanabilirsin.</p>
+    <div id="supportLinks" class="support-links"></div>
+    <p id="supportPending" class="muted">Resmi destek bağlantıları eklendiğinde burada görünecek. Şimdilik uygulamayı arkadaşlarınla paylaşarak destek olabilirsin.</p>
+    <small id="appVersion" class="muted"></small>
+  </dialog>
+
+  <dialog id="helpDialog" aria-labelledby="helpTitle">
+    <div class="dialog-heading"><span class="welcome-label">HIZLI BAŞLANGIÇ</span><button class="btn icon" data-close-dialog aria-label="Pencereyi kapat">×</button></div>
+    <h2 id="helpTitle">Aç. Not al. Kaydet.</h2>
+    <ol class="help-steps">
+      <li><strong>PDF'ini aç.</strong> Dosyayı sürükle veya <kbd>Ctrl</kbd> + <kbd>O</kbd> kullan.</li>
+      <li><strong>Bir araç seç.</strong> Kalemle çiz, fosforlu kalemle vurgula, yazı ve şekil ekle. Seç aracıyla kendi notlarını taşı; yazıyı düzenlemek için çift tıkla.</li>
+      <li><strong>Bir kopya kaydet.</strong> <kbd>Ctrl</kbd> + <kbd>S</kbd> ile ilk kayıtta dosya konumunu seç. Notlar PDF'e işlenir; başka PDF okuyucularında da görünür.</li>
+    </ol>
+    <div class="privacy-note">Mevcut metni değiştirmek için Metni düzenle aracını seç ve PDF üzerindeki bir metin kutusuna tıkla. Silgi yalnızca eklediğin notları siler. Taranmış PDF’ler OCR gerektirir; her metin nesnesi düzenlenemeyebilir.</div>
+    <p class="muted">Geri al: Ctrl+Z · Yinele: Ctrl+Y · Yakınlaştır: Ctrl+fare tekerleği · Genişliğe sığdır: Ctrl+0 · Seçili notu sil: Delete</p>
+    <p class="muted">Taslak notlar bu bilgisayarda otomatik saklanır. Paylaşılabilir bir PDF oluşturmak için Kaydet'i kullan.</p>
+  </dialog>
+  <dialog id="editTextDialog" aria-labelledby="editTextTitle">
+    <div class="dialog-heading"><span class="welcome-label">PDF İÇERİĞİNİ DÜZENLE</span><button class="btn icon" data-close-dialog aria-label="Pencereyi kapat">×</button></div>
+    <h2 id="editTextTitle">Metni değiştir</h2>
+    <label class="field-label" for="originalText">Orijinal metin</label><textarea id="originalText" rows="2" readonly></textarea>
+    <label class="field-label" for="replacementText">Yeni metin</label><textarea id="replacementText" rows="4"></textarea>
+    <div class="edit-options"><label class="lbl">Yazı boyutu <input type="number" id="replacementSize" min="1" max="200" value="16"></label><label class="lbl">Renk <input type="color" id="replacementColor" value="#111111"></label></div>
+    <p class="muted">Eski metin PDF'den kaldırılır. Yeni metin Unicode yazı tipiyle aynı konuma eklenir; orijinal yazı tipi farklı görünebilir. Metni silmek için yeni metin alanını boş bırak.</p>
+    <div class="dialog-buttons"><button class="btn" data-close-dialog>Vazgeç</button><button id="btnApplyText" class="btn primary">Değişikliği uygula</button></div>
+  </dialog>
+  <dialog id="pagesDialog" aria-labelledby="pagesTitle">
+    <div class="dialog-heading"><span class="welcome-label">BELGEYİ DÜZENLE</span><button class="btn icon" data-close-dialog aria-label="Pencereyi kapat">×</button></div>
+    <h2 id="pagesTitle">Sayfaları yönet</h2>
+    <p class="muted">Sayfaları sırala, döndür veya sil. Değişiklikleri geri alabilirsin; dosyaya işlemek için Kaydet'i kullan.</p>
+    <div id="pageList"></div>
+  </dialog>
+  <dialog id="updatesDialog" aria-labelledby="updatesTitle">
+    <div class="dialog-heading"><span class="welcome-label">EPDF · GITHUB RELEASES</span><button class="btn icon" data-close-dialog aria-label="Pencereyi kapat">×</button></div>
+    <h2 id="updatesTitle">Güncellemeler</h2>
+    <p>Yeni sürümler AlgoWolfx/EPDF GitHub deposundan alınır. Güncelleme kontrolü internet bağlantısı gerektirir; PDF dosyaların gönderilmez.</p>
+    <p id="updateStatus" role="status"></p>
+    <div class="dialog-buttons"><button id="btnCheckUpdate" class="btn primary">Güncellemeleri kontrol et</button><button id="btnDownloadUpdate" class="btn" hidden>Güncellemeyi indir</button><button id="btnInstallUpdate" class="btn" hidden>Yeniden başlat ve kur</button><button id="btnReleasePage" class="btn">Sürümler sayfası ↗</button></div>
+  </dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script src="../node_modules/pdf-lib/dist/pdf-lib.min.js"></script>
+  <script src="../node_modules/@pdf-lib/fontkit/dist/fontkit.umd.min.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

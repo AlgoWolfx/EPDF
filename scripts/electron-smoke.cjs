@@ -1,0 +1,172 @@
+const { app, BrowserWindow, dialog, shell } = require('electron');
+const fs = require('node:fs/promises');
+const os = require('node:os');
+const path = require('node:path');
+const assert = require('node:assert/strict');
+const { PDFDocument } = require('pdf-lib');
+
+async function waitFor(check, label) {
+  const deadline = Date.now() + 15000;
+  while (Date.now() < deadline) {
+    if (await check()) return;
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  throw new Error(`Zaman aşımı: ${label}`);
+}
+
+(async () => {
+  const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'epdf-smoke-'));
+  app.setPath('userData', path.join(temp, 'profile'));
+  const input = path.join(temp, 'original.pdf');
+  const output = path.join(temp, 'notes.pdf');
+  const doc = await PDFDocument.create();
+  doc.addPage([595, 842]).drawText('PDF smoke test', { x: 50, y: 700, size: 18 });
+  doc.addPage([595, 842]).drawText('Second page', { x: 50, y: 700, size: 18 });
+  doc.addPage([595, 842]).drawText('Third page', { x: 50, y: 700, size: 18 });
+  await fs.writeFile(input, await doc.save());
+  let savePath = input;
+  let saveCount = 0;
+  dialog.showSaveDialog = async () => { saveCount++; return { canceled: false, filePath: savePath }; };
+  dialog.showMessageBoxSync = () => 0;
+  const links = [];
+  shell.openExternal = async url => { links.push(url); };
+  const appRoot = process.env.EPDF_SMOKE_APP || path.resolve(__dirname, '..');
+  app.setAppPath(appRoot);
+  require(path.join(appRoot, 'main.js'));
+  await app.whenReady();
+  const win = BrowserWindow.getAllWindows()[0];
+  win.webContents.setBackgroundThrottling(false);
+  const errors = [];
+  win.webContents.on('console-message', (_event, ...args) => {
+    const raw = [ _event, ...args ];
+    const message = raw.find(item => item && typeof item === 'object' && 'message' in item);
+    if (message?.level === 'error' || message?.level === 3) { errors.push(message.message); console.error('Renderer:', message.message); }
+    const details = args[0];
+    if (typeof details === 'object' && details.level === 'error') errors.push(details.message);
+  });
+  const evaluate = code => win.webContents.executeJavaScript(code);
+  await waitFor(() => evaluate("document.getElementById('appVersion')?.textContent.includes('Sürüm')"), 'uygulama başlangıcı');
+  assert.ok(await evaluate("document.getElementById('appVersion').textContent.includes(" + JSON.stringify(require('../package.json').version) + ")"));
+  assert.equal(await evaluate("document.querySelectorAll('#supportLinks button').length"), 4);
+  await evaluate("document.getElementById('btnAbout').click()");
+  assert.equal(await evaluate("document.getElementById('aboutDialog').open"), true);
+  await evaluate("document.querySelectorAll('#supportLinks button').forEach(button => button.click())");
+  await waitFor(() => links.length === 4, 'destek bağlantıları');
+  assert.ok(links.includes('https://egoradigital.com/'));
+  assert.equal(await evaluate("window.api.openExternal('file:///C:/Windows').then(() => false, () => true)"), true);
+  await evaluate("document.getElementById('aboutDialog').close(); document.getElementById('btnHelp').click()");
+  assert.equal(await evaluate("document.getElementById('helpDialog').open"), true);
+  await evaluate("document.getElementById('helpDialog').close()");
+  win.webContents.send('open-file', input);
+  await waitFor(() => evaluate("document.body.classList.contains('has-doc') && document.querySelector('.overlay')?.width > 0"), 'PDF açma').catch(async error => {
+    console.error(await evaluate("JSON.stringify({toast:document.getElementById('toast').textContent, pages:[...document.querySelectorAll('.page')].map(p=>({hidden:p.hidden,rect:p.getBoundingClientRect().toJSON(),width:p.querySelector('.overlay').width})), scroll:document.getElementById('viewer').scrollTop})"), errors); throw error;
+  });
+  await evaluate("document.querySelector('[data-tool=text]').click()");
+  const point = await evaluate("(() => { const r = document.querySelector('.overlay').getBoundingClientRect(); return {x: Math.round(r.left + 80), y: Math.round(r.top + 90)}; })()");
+  win.webContents.sendInputEvent({ type: 'mouseDown', button: 'left', clickCount: 1, ...point });
+  win.webContents.sendInputEvent({ type: 'mouseUp', button: 'left', clickCount: 1, ...point });
+  await waitFor(() => evaluate("!!document.querySelector('textarea.textedit')"), 'yazı aracı');
+  await evaluate("document.querySelector('textarea.textedit').value = 'Yiğit Osman Bayrak · Türkçe: ş ğ ı İ'; document.querySelector('textarea.textedit').dispatchEvent(new Event('input'))");
+  assert.ok(await evaluate("document.getElementById('documentStatus').textContent.includes('Taslak')"), 'yazı tamamlanmadan da değişiklikler izlenmeli');
+  assert.ok(await evaluate("Object.values(JSON.parse(localStorage.getItem('ders-pdf:' + " + JSON.stringify(input) + "))).flat().some(note => note.text?.includes('Türkçe'))"), 'yazılmakta olan metin taslakta saklanmalı');
+  await evaluate("document.querySelector('[data-tool=select]').click()");
+  assert.ok(await evaluate("document.getElementById('documentStatus').textContent.includes('Taslak')"));
+  win.close();
+  assert.equal(win.isDestroyed(), false, 'kaydedilmemiş belge kapatılmamalı');
+  await evaluate("document.getElementById('btnUndo').click()");
+  assert.equal(await evaluate("document.getElementById('documentStatus').textContent.includes('Taslak')"), false);
+  await evaluate("document.getElementById('btnRedo').click(); document.getElementById('btnSave').click(); document.getElementById('btnSave').click()");
+  await waitFor(() => evaluate("document.getElementById('toast').textContent.includes('Orijinal PDF korunur')"), 'orijinal dosya koruması');
+  assert.equal(saveCount, 1, 'aynı anda yalnızca bir kaydetme');
+  assert.equal((await PDFDocument.load(await fs.readFile(input))).getPageCount(), 3);
+  savePath = output;
+  await waitFor(() => evaluate("!document.getElementById('btnSave').disabled"), 'kaydetme düğmesi');
+  await evaluate("document.getElementById('btnSave').click()");
+  await waitFor(() => evaluate("document.getElementById('documentStatus').textContent.includes('PDF kaydedildi')"), 'PDF dışa aktarma');
+  const exported = await PDFDocument.load(await fs.readFile(output));
+  assert.equal(exported.getPageCount(), 3);
+  assert.ok((await fs.stat(output)).size > (await fs.stat(input)).size, 'not ve Türkçe yazı fontu dışa aktarılmalı');
+  const text = await evaluate(`(async () => {
+    const pdfjs = await import('../node_modules/pdfjs-dist/build/pdf.min.mjs');
+    const task = pdfjs.getDocument({ data: await window.api.readFile(${JSON.stringify(output)}) });
+    const pdf = await task.promise;
+    const content = await (await pdf.getPage(1)).getTextContent();
+    const text = content.items.map(item => item.str).join(' ');
+    await task.destroy();
+    return text;
+  })()`);
+  assert.ok(text.includes('Türkçe: ş ğ ı İ'), text);
+  assert.ok(!text.includes('EGORA DIGITAL'), 'PDF çıktısında marka bulunmamalı');
+  const sourcePoint = await evaluate(`(async () => {
+    const engine = await import('./pdf-engine.js');
+    const sources = await engine.inspectTextObjects(await window.api.readFile(${JSON.stringify(input)}), 0);
+    if (sources[0]?.text !== 'PDF smoke test') throw new Error('Text object not found: ' + JSON.stringify(sources));
+    const r = document.querySelector('.overlay').getBoundingClientRect();
+    const [left, bottom, right, top] = sources[0].bounds;
+    return { x: Math.round(r.left + (left + right) / 2 * r.width / 595),
+      y: Math.round(r.top + (842 - (top + bottom) / 2) * r.height / 842) };
+  })()`);
+  await evaluate("document.querySelector('[data-tool=editText]').click()");
+  win.webContents.sendInputEvent({ type: 'mouseDown', button: 'left', clickCount: 1, ...sourcePoint });
+  win.webContents.sendInputEvent({ type: 'mouseUp', button: 'left', clickCount: 1, ...sourcePoint });
+  await waitFor(() => evaluate("document.getElementById('editTextDialog').open"), 'mevcut PDF metnini seçme');
+  await evaluate("document.getElementById('replacementText').value = 'Yeni içerik: ş ğ ı İ'; document.getElementById('btnApplyText').click()");
+  assert.ok(await evaluate("document.getElementById('documentStatus').textContent.includes('Taslak')"));
+  await evaluate("document.getElementById('btnUndo').click()");
+  assert.equal(await evaluate("document.getElementById('documentStatus').textContent.includes('Taslak')"), false);
+  await evaluate("document.getElementById('btnRedo').click(); document.getElementById('btnSave').click()");
+  await waitFor(() => evaluate("document.getElementById('documentStatus').textContent.includes('PDF kaydedildi')"), 'gerçek metin değiştirme ve dışa aktarma').catch(async error => {
+    console.error(await evaluate("JSON.stringify({status: document.getElementById('documentStatus').textContent, toast: document.getElementById('toast').textContent, disabled: document.getElementById('btnSave').disabled})"), errors);
+    throw error;
+  });
+  const replaced = await evaluate(`(async () => {
+    const pdfjs = await import('../node_modules/pdfjs-dist/build/pdf.min.mjs');
+    const task = pdfjs.getDocument({ data: await window.api.readFile(${JSON.stringify(output)}) });
+    const pdf = await task.promise;
+    const text = (await (await pdf.getPage(1)).getTextContent()).items.map(item => item.str).join(' ');
+    await task.destroy(); return text;
+  })()`);
+  assert.ok(replaced.includes('Yeni içerik: ş ğ ı İ'), replaced);
+  assert.ok(!replaced.includes('PDF smoke test'), 'eski metin PDF içeriğinden kaldırılmalı');
+  await evaluate(`document.getElementById('btnPages').click(); document.querySelector('[data-page-action=up][data-position="1"]').click(); document.querySelector('[data-page-action=rotate][data-position="0"]').click(); document.querySelector('[data-page-action=delete][data-position="2"]').click()`);
+  assert.equal(await evaluate("document.getElementById('pageTotal').textContent"), '/ 2');
+  assert.equal(await evaluate("document.querySelectorAll('.page:not([hidden])').length"), 2);
+  await evaluate("document.getElementById('pagesDialog').close(); document.getElementById('btnUndo').click()");
+  assert.equal(await evaluate("document.getElementById('pageTotal').textContent"), '/ 3');
+  await evaluate("document.getElementById('btnRedo').click(); document.getElementById('btnSave').click()");
+  await waitFor(() => evaluate("document.getElementById('documentStatus').textContent.includes('PDF kaydedildi')"), 'sayfa düzenleme dışa aktarma');
+  const arranged = await PDFDocument.load(await fs.readFile(output));
+  assert.equal(arranged.getPageCount(), 2);
+  assert.equal(arranged.getPage(0).getRotation().angle, 90);
+  assert.equal(arranged.getPage(1).getRotation().angle, 0);
+  const arrangedText = await evaluate(`(async () => {
+    const pdfjs = await import('../node_modules/pdfjs-dist/build/pdf.min.mjs');
+    const task = pdfjs.getDocument({ data: await window.api.readFile(${JSON.stringify(output)}) });
+    const pdf = await task.promise;
+    const pages = [];
+    for (let i = 1; i <= pdf.numPages; i++) pages.push((await (await pdf.getPage(i)).getTextContent()).items.map(item => item.str).join(' '));
+    await task.destroy(); return pages;
+  })()`);
+  assert.ok(arrangedText[0].includes('Second page'), 'sayfa sırası çıktıda değişmeli');
+  assert.ok(arrangedText[1].includes('Yeni içerik'), 'metin değişikliği sayfa taşındığında korunmalı');
+  assert.ok(!arrangedText.join(' ').includes('Third page'), 'silinen sayfa çıktıda bulunmamalı');
+  await evaluate("document.getElementById('languageSelect').value = 'en'; document.getElementById('languageSelect').dispatchEvent(new Event('change'))");
+  assert.equal(await evaluate("document.documentElement.lang"), 'en');
+  assert.equal(await evaluate("document.getElementById('btnSaveAs').textContent"), 'Save as');
+  assert.equal(await evaluate("document.getElementById('pageTotal').textContent"), '/ 2', 'dil değişimi sayfa bilgisini sıfırlamamalı');
+  assert.ok(await evaluate("document.getElementById('documentStatus').textContent.includes('PDF saved')"));
+  await evaluate("document.getElementById('btnUpdates').click()");
+  await waitFor(() => evaluate("document.getElementById('updatesDialog').open"), 'güncelleme penceresi');
+  await evaluate("document.getElementById('btnCheckUpdate').click()");
+  await waitFor(() => evaluate("document.getElementById('updateStatus').textContent.includes('Release page')"), 'geliştirme sürümü güncelleme yönlendirmesi');
+  await evaluate("document.getElementById('updatesDialog').close(); document.getElementById('languageSelect').value = 'tr'; document.getElementById('languageSelect').dispatchEvent(new Event('change'))");
+  await evaluate("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
+  assert.ok(!errors.some(message => /Uncaught|SyntaxError|ReferenceError/.test(message)), errors.join('\n'));
+  await win.webContents.capturePage().then(image => fs.writeFile(path.join(temp, 'preview.png'), image.toPNG())).catch(() => {});
+  await evaluate("document.getElementById('btnAbout').click()");
+  await evaluate("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
+  await win.webContents.capturePage().then(image => fs.writeFile(path.join(temp, 'about.png'), image.toPNG())).catch(() => {});
+  console.log('PASS: PDF metin değiştirme, Unicode, sayfa sıralama/döndürme/silme, notlar, geri al/yinele, dosya koruması, TR/EN ve güncelleme arayüzü.');
+  console.log(`Önizleme: ${path.join(temp, 'preview.png')}`);
+  app.exit(0);
+})().catch(error => { console.error(error); app.exit(1); });
