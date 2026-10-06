@@ -75,6 +75,8 @@
       </section>
       <section id="strokeProperties" hidden><label class="property-row">Kalınlık<input type="range" id="width" min="1" max="24" value="3"></label></section>
       <section id="imageProperties" hidden>
+        <label class="image-aspect-toggle"><input id="imageLockAspect" type="checkbox" checked> Oranı koru</label>
+        <div class="image-size-actions"><button id="btnImageSmaller" class="btn" data-icon="minus">Küçült</button><button id="btnImageLarger" class="btn" data-icon="plus">Büyüt</button></div>
         <label class="property-row">Genişlik<input id="imageWidth" type="number" min="1" max="10000"></label>
         <label class="property-row">Yükseklik<input id="imageHeight" type="number" min="1" max="10000"></label>
         <label class="property-row">Dönüş<input id="imageRotation" type="number" min="-360" max="360"></label>

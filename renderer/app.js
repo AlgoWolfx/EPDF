@@ -231,13 +231,16 @@ function redrawPage(i) {
     ctx.restore();
   }
   if (S.sel && S.sel.page === i) {
-    const b = bbox(S.sel.obj);
-    ctx.save();
-    ctx.strokeStyle = '#4f8cff';
-    ctx.lineWidth = 1.5 / S.scale;
-    ctx.setLineDash([]);
-    ctx.strokeRect(b.x - 3, b.y - 3, b.w + 6, b.h + 6);
-    ctx.restore();
+    if(S.sel.obj.type==='image')images.drawSelection(ctx,S.sel.obj);
+    else {
+      const b = bbox(S.sel.obj);
+      ctx.save();
+      ctx.strokeStyle = '#4f8cff';
+      ctx.lineWidth = 1.5 / S.scale;
+      ctx.setLineDash([]);
+      ctx.strokeRect(b.x - 3, b.y - 3, b.w + 6, b.h + 6);
+      ctx.restore();
+    }
   }
   if(S.contentSelection?.page===i){
     const object=S.contentSelection.object,b={x:object.x,y:object.y,w:object.boxWidth,h:object.size*(object.leading||1.2)};
@@ -604,6 +607,15 @@ function bindOverlay(i, el) {
     if (t === 'image') {images.place(i,p);e.preventDefault();return;}
 
     if (t === 'select') {
+      if(S.sel?.page===i && S.sel.obj.type==='image'){
+        const object=S.sel.obj,handle=images.handleAt(object,p);
+        if(handle){
+          const {x,y,w,h,rotation}=object;
+          drag={imageResize:{object,handle,initial:{x,y,w,h,rotation}},moved:false};
+          el.style.cursor=images.resizeCursor(object,handle,S.pages[i]);
+          el.setPointerCapture(e.pointerId);e.preventDefault();return;
+        }
+      }
       const hit = topHit(i, p.x, p.y);
       const selected=S.contentSelection;
       if(!hit && selected?.page===i){
@@ -652,9 +664,21 @@ function bindOverlay(i, el) {
   });
 
   el.addEventListener('pointermove', (e) => {
-    if (!drag) return;
+    if (!drag) {
+      if(S.tool==='select'){
+        const point=pagePoint(e,el),selected=S.sel?.page===i?S.sel.obj:null;
+        const handle=selected?.type==='image'?images.handleAt(selected,point):null;
+        el.style.cursor=handle?images.resizeCursor(selected,handle,S.pages[i]):topHit(i,point.x,point.y)?'move':'default';
+      }
+      return;
+    }
     if (drag.pan) {viewer.scrollLeft=drag.left-(e.clientX-drag.x);viewer.scrollTop=drag.top-(e.clientY-drag.y);return;}
     const p = pagePoint(e, el);
+    if(drag.imageResize){
+      const {object,initial,handle}=drag.imageResize;
+      if(!drag.moved){pushHistory();drag.moved=true;}
+      images.resize(object,initial,handle,p);redrawPage(i);return;
+    }
     if(drag.content && S.contentSelection){
       if(!drag.moved){pushHistory();drag.moved=true;}
       inlineEditor.mutateSelection(obj=>{
@@ -687,7 +711,7 @@ function bindOverlay(i, el) {
     if (!drag) return;
     if(drag.pan) el.style.cursor='grab';
     const wasCur = S.cur;
-    if (S.tool === 'select' && drag.moved) afterChange();
+    if (drag.moved) afterChange();
     if (wasCur) {
       const o = wasCur.obj;
       const tiny = !o.pts && Math.hypot(o.x2 - o.x1, o.y2 - o.y1) < 3;
@@ -699,6 +723,7 @@ function bindOverlay(i, el) {
       S.cur = null;
     }
     drag = null;
+    if(S.tool==='select')el.style.cursor='default';
     redrawPage(i);
   };
   el.addEventListener('pointerup', finish);
@@ -709,7 +734,7 @@ function bindOverlay(i, el) {
     const p = pagePoint(e, el);
     const hit = topHit(i, p.x, p.y);
     if (hit?.type === 'text') startEditor(i, hit);
-    else editPdfText(i,p);
+    else if(hit?.type!=='image')editPdfText(i,p);
   });
 }
 

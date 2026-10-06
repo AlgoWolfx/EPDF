@@ -8,7 +8,7 @@
 - Açık/koyu tema; Türkçe ve İngilizce arayüz. Tercihler sonraki açılışta korunur.
 - **Mevcut metin:** Metni düzenle aracında yazıya tıkla. Doğrudan belge üzerindeki kutuda yaz; sağ panelden yazı tipi, boyut, renk, hizalama, satır/harf aralığı, konum ve kutu genişliğini değiştir. Ctrl+Enter uygular; Escape bekleyen düzenlemeyi iptal eder.
 - **Seç:** Tek tıklamayla metin veya eklediğin nesneyi seç; çift tıklamayla metni düzenle. Metni sürükle, sağ kenarından kutusunu boyutlandır veya ok tuşlarıyla taşı. Shift+ok 10 birim taşır. Delete siler; Ctrl+C / Ctrl+V desteklenen nesneleri kopyalayıp ekler.
-- **Metin ve resim ekle:** PNG/JPEG yerleştir, taşı, boyutlandır, döndür, opaklığını değiştir, kırp veya değiştir.
+- **Metin ve resim ekle:** PNG/JPEG yerleştir ve seç. Köşe tutamaçlarından sürükleyerek boyutlandır; “Oranı koru” varsayılan olarak açıktır. Sağ panelden genişlik/yükseklik gir veya Büyüt/Küçült düğmelerini kullan. Resmi taşı, döndür, opaklığını değiştir, kırp veya değiştir. Bir boyutlandırma hareketi tek adımda geri alınır.
 - Kalem, fosforlu kalem, vurgu, alt çizgi, çizgi, ok, dikdörtgen, elips ve eklenen notlar için silgi.
 - Sayfaları sırala, 90° döndür veya sil. Ortak Ctrl+Z / Ctrl+Y geçmişi metin, OCR, resim, not ve sayfa işlemlerini kapsar.
 - **Ctrl+F:** Özgün PDF metni, düzenlenen metin, eklenen yazılar ve OCR satırları içinde ara. Sonuca tıklayınca ilgili sayfa ve bölge vurgulanır.

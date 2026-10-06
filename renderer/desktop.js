@@ -75,7 +75,7 @@ export function createDesktop({state,plan,ensurePage,navigate,inline,images}) {
     const obj=state.sel?.obj;
     if(obj?.type==='image'){
       $('textProperties').hidden=true;$('strokeProperties').hidden=true;$('colorProperties').hidden=true;
-      $('propertyHint').textContent=t('Seçili resim');images.properties(obj);return;
+      $('propertyHint').textContent=t('Köşelerden boyutlandır · Sürükleyerek taşı');images.properties(obj);return;
     }
     const text=obj?.type==='text'||['text','editText'].includes(state.tool);
     const color=!!obj||!['select','view'].includes(state.tool);

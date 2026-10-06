@@ -265,5 +265,10 @@
   "Kalın": "Bold",
   "İtalik": "Italic",
   "Kalın italik": "Bold italic",
-  "OCR sonuçları uygulanamadı. Belgeyi yeniden açıp dene.": "Could not apply OCR results. Reopen the document and try again."
+  "OCR sonuçları uygulanamadı. Belgeyi yeniden açıp dene.": "Could not apply OCR results. Reopen the document and try again.",
+  "Oranı koru": "Lock aspect ratio",
+  "Küçült": "Shrink",
+  "Büyüt": "Enlarge",
+  "Köşelerden boyutlandır · Sürükleyerek taşı": "Resize from corners · Drag to move",
+  "Görsel boyutu 1 ile 10000 arasında olmalı.": "Image dimensions must be between 1 and 10000."
 }

@@ -11,7 +11,7 @@ The source and packaged application run the same real Electron tests. Test docum
 | Table | Rules retained; unchanged table region compared pixel for pixel |
 | Different fonts and sizes | Extracted source font/glyph model; Times replacement at requested size |
 | Colored text / illustration | Requested text fill serialized; illustration untouched |
-| 125-page PDF | Lazy initial page requests/canvases; page 100 navigation; whole-document native search; cropped-image export retains all pages |
+| 125-page PDF | Lazy initial page requests/canvases; page 100 navigation; whole-document native search; image corner enlargement/reduction, aspect lock/unlock, rotated opposite-corner anchoring, one-step undo/redo and size buttons; cropped-image export retains all pages |
 | Low-resolution scan | Actual recognition, spatial model and editable PDF export |
 
 Additional checks: fully offline Portuguese recognition; automatic OCR from Edit Text; cancel before recognition; edit a native page during recognition of another page; cancellation preserves that edit; support links; TR/EN UI; update UI; light/dark screenshots; OCR search and highlight.

@@ -45,6 +45,8 @@ input[type=checkbox] {min-height:auto;accent-color:var(--accent)}
 .property-row {display:flex;justify-content:space-between;align-items:center;gap:8px;margin:9px 0;color:var(--muted)}
 .property-row select {max-width:124px;width:124px}.property-row input {width:84px}
 .property-footnote {margin-top:24px;font-size:11px;line-height:1.6}
+.image-aspect-toggle {display:flex;align-items:center;gap:6px;margin:9px 0}
+.image-size-actions {display:flex;gap:4px;margin:8px 0}.image-size-actions .btn {flex:1;border-color:var(--border);padding:3px 5px}
 #propertyHint {font-size:12px;min-height:30px}#btnCommitText {width:100%;margin:6px 0}
 #swatches {display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
 .swatch {width:17px;height:17px;border:1px solid #555;border-radius:2px;padding:0}

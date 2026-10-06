@@ -1,4 +1,5 @@
 import { t } from './i18n.js';
+import { imageCorners, imageHandleAt, resizedImage, imageResizeCursor } from './image-geometry.js';
 export function createImages({state,history,changed,redraw,tool,toast}) {
   const $=id=>document.getElementById(id);
   async function read() {
@@ -24,6 +25,7 @@ export function createImages({state,history,changed,redraw,tool,toast}) {
   const fields={w:'imageWidth',h:'imageHeight',rotation:'imageRotation',opacity:'imageOpacity',cropLeft:'imageCropLeft',cropTop:'imageCropTop',cropRight:'imageCropRight',cropBottom:'imageCropBottom'};
   function properties(object){
     $('imageProperties').hidden=false;
+    $('imageLockAspect').checked=state.imageAspectLocked ?? true;
     for(const [key,id] of Object.entries(fields))$(id).value=key==='opacity'?Math.round((object.opacity??1)*100):Math.round(object[key]||0);
   }
   for(const [key,id] of Object.entries(fields))$(id).onchange=()=>{
@@ -31,10 +33,39 @@ export function createImages({state,history,changed,redraw,tool,toast}) {
     const value=Number($(id).value);if(!Number.isFinite(value)||!$(id).checkValidity()){$(id).reportValidity();return;}
     const crop={...selected.obj,[key]:value};
     if((crop.cropLeft||0)+(crop.cropRight||0)>=100||(crop.cropTop||0)+(crop.cropBottom||0)>=100){toast(t('Kırpma alanı resmi tamamen silemez.'),true);properties(selected.obj);return;}
-    history.checkpoint();selected.obj[key]=key==='opacity'?value/100:value;changed();redraw(selected.page);
+    const object=selected.obj;
+    const next=key==='opacity'?value/100:value;
+    if(object[key]===next){properties(object);return;}
+    const dimensions={};
+    if((state.imageAspectLocked ?? true) && (key==='w'||key==='h')){
+      dimensions[key==='w'?'h':'w']=key==='w'?value*object.h/object.w:value*object.w/object.h;
+      if(Object.values(dimensions).some(size=>size<1||size>10000)){toast(t('Görsel boyutu 1 ile 10000 arasında olmalı.'),true);properties(object);return;}
+    }
+    history.checkpoint();Object.assign(object,dimensions,{[key]:next});changed();redraw(selected.page);
   };
+  $('imageLockAspect').onchange=()=>{state.imageAspectLocked=$('imageLockAspect').checked;};
+  function scaleSelected(factor){
+    const selected=state.sel;if(selected?.obj.type!=='image')return;
+    const object=selected.obj;
+    const bounded=Math.min(10000/Math.max(object.w,object.h),Math.max(1/Math.min(object.w,object.h),factor));
+    if(bounded===1)return;
+    history.checkpoint();object.w*=bounded;object.h*=bounded;changed();redraw(selected.page);
+  }
+  $('btnImageSmaller').onclick=()=>scaleSelected(.9);
+  $('btnImageLarger').onclick=()=>scaleSelected(1.1);
   $('btnReplaceImage').onclick=()=>pick(true);
-  return {pick,properties,place(page,point){
+  return {pick,properties,
+    handleAt:(object,point)=>imageHandleAt(object,point,7/state.scale),
+    resizeCursor:(object,handle,page)=>imageResizeCursor(object,handle,page.vp.rotation-page.baseVp.rotation),
+    resize(object,initial,handle,point){Object.assign(object,resizedImage(initial,handle,point,state.imageAspectLocked ?? true));properties(object);},
+    drawSelection(context,object){
+      const corners=imageCorners(object),size=7/state.scale;
+      context.save();context.strokeStyle='#2469b4';context.fillStyle='#fff';context.lineWidth=1/state.scale;context.setLineDash([]);
+      context.beginPath();corners.forEach((corner,index)=>index?context.lineTo(corner.x,corner.y):context.moveTo(corner.x,corner.y));context.closePath();context.stroke();
+      for(const corner of corners){context.fillRect(corner.x-size/2,corner.y-size/2,size,size);context.strokeRect(corner.x-size/2,corner.y-size/2,size,size);}
+      context.restore();
+    },
+    place(page,point){
     const image=state.pendingImage;if(!image)return;
     const width=Math.min(300,state.pages[page].baseVp.width-point.x);
     history.checkpoint();const object={...image,type:'image',x:point.x,y:point.y,w:Math.max(20,width),h:Math.max(20,width)*image.naturalHeight/image.naturalWidth,rotation:0,opacity:1};

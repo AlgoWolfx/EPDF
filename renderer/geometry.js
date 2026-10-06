@@ -1,5 +1,6 @@
 // Ortak geometri: çizim, dokunma testi ve PDF'e aktarma aynı şekilleri kullanır.
 // Koordinatlar sayfa birimindedir (PDF noktası, ölçek 1, sol-üst orijin).
+import { imageCorners, imageLocalPoint } from './image-geometry.js';
 
 export const FONT = 'Arial, sans-serif';
 export const LINE_HEIGHT = 1.2;
@@ -79,10 +80,9 @@ export function polylines(a) {
 
 export function bbox(a) {
   if(a.type==='image'){
-    const radians=(a.rotation||0)*Math.PI/180;
-    const corners=[[0,0],[a.w,0],[0,a.h],[a.w,a.h]].map(([x,y])=>[a.x+x*Math.cos(radians)-y*Math.sin(radians),a.y+x*Math.sin(radians)+y*Math.cos(radians)]);
-    const x=Math.min(...corners.map(p=>p[0])),y=Math.min(...corners.map(p=>p[1]));
-    return {x,y,w:Math.max(...corners.map(p=>p[0]))-x,h:Math.max(...corners.map(p=>p[1]))-y};
+    const corners=imageCorners(a);
+    const x=Math.min(...corners.map(p=>p.x)),y=Math.min(...corners.map(p=>p.y));
+    return {x,y,w:Math.max(...corners.map(p=>p.x))-x,h:Math.max(...corners.map(p=>p.y))-y};
   }
   if (a.type === 'text') {
     const m = textMetrics(a);
@@ -106,7 +106,11 @@ function distToSeg(px, py, ax, ay, bx, by) {
 }
 
 export function hitTest(a, x, y, tol) {
-  if (a.type === 'text' || a.type === 'image') {
+  if(a.type==='image'){
+    const local=imageLocalPoint(a,{x,y});
+    return local.x>=-tol&&local.x<=a.w+tol&&local.y>=-tol&&local.y<=a.h+tol;
+  }
+  if (a.type === 'text') {
     const b = bbox(a);
     return x >= b.x - tol && x <= b.x + b.w + tol && y >= b.y - tol && y <= b.y + b.h + tol;
   }

@@ -177,6 +177,54 @@ module.exports=async({temp,win,evaluate,waitFor,scanPath,ocrOutput,networkAttemp
   const imagePoint=await evaluate("(()=>{const r=document.querySelector('.page[data-i=\"99\"] .overlay').getBoundingClientRect();return {x:Math.round(r.left+80),y:Math.round(r.top+70)};})()");
   for(const type of ['mouseDown','mouseUp'])win.webContents.sendInputEvent({type,button:'left',clickCount:1,...imagePoint});
   await waitFor(()=>evaluate("!document.getElementById('imageProperties').hidden"),'image properties');
+  const readImage=()=>evaluate(`JSON.parse(localStorage.getItem('ders-pdf:'+ ${JSON.stringify(largePath)}))[99].find(item=>item.type==='image')`);
+  const imageCorner=handle=>evaluate(`(async()=>{
+    const {imageCorners}=await import('./image-geometry.js');
+    const image=JSON.parse(localStorage.getItem('ders-pdf:'+ ${JSON.stringify(largePath)}))[99].find(item=>item.type==='image');
+    const corner=imageCorners(image).find(point=>point.handle===${JSON.stringify(handle)});
+    const rect=document.querySelector('.page[data-i="99"] .overlay').getBoundingClientRect();
+    return {x:Math.round(rect.left+corner.x*rect.width/595),y:Math.round(rect.top+corner.y*rect.height/842)};
+  })()`);
+  async function dragCorner(handle,dx,dy){
+    const start=await imageCorner(handle);
+    win.webContents.sendInputEvent({type:'mouseMove',...start});
+    win.webContents.sendInputEvent({type:'mouseDown',button:'left',clickCount:1,...start});
+    win.webContents.sendInputEvent({type:'mouseMove',x:start.x+dx,y:start.y+dy,modifiers:['leftButtonDown']});
+    win.webContents.sendInputEvent({type:'mouseUp',button:'left',clickCount:1,x:start.x+dx,y:start.y+dy});
+  }
+  const initialImage=await readImage();
+  await dragCorner('se',60,30);
+  await waitFor(async()=>(await readImage()).w>initialImage.w+10,'image corner enlargement');
+  let resized=await readImage();
+  assert.ok(Math.abs(resized.w/resized.h-initialImage.w/initialImage.h)<.001,'corner resizing must preserve the ratio');
+  assert.ok(Math.abs(resized.x-initialImage.x)<.001&&Math.abs(resized.y-initialImage.y)<.001,'opposite corner must stay anchored');
+  await evaluate("document.getElementById('btnUndo').click()");
+  assert.ok(Math.abs((await readImage()).w-initialImage.w)<.001,'one undo must reverse a whole resize gesture');
+  await evaluate("document.getElementById('btnRedo').click()");
+  const enlargedWidth=(await readImage()).w;
+  const currentCorner=await imageCorner('se');
+  for(const type of ['mouseDown','mouseUp'])win.webContents.sendInputEvent({type,button:'left',clickCount:1,x:currentCorner.x-20,y:currentCorner.y-20});
+  await waitFor(()=>evaluate("!document.getElementById('imageProperties').hidden"),'reselect resized image');
+  await dragCorner('se',-40,-20);
+  await waitFor(async()=>(await readImage()).w<enlargedWidth-5,'image corner reduction');
+  await evaluate("document.getElementById('imageRotation').value='30';document.getElementById('imageRotation').dispatchEvent(new Event('change'))");
+  const rotatedImage=await readImage();
+  await dragCorner('nw',-20,-30);
+  await waitFor(async()=>(await readImage()).w>rotatedImage.w+5,'rotated image resizing');
+  resized=await readImage();
+  const opposite=image=>{
+    const angle=image.rotation*Math.PI/180;
+    return {x:image.x+image.w*Math.cos(angle)-image.h*Math.sin(angle),y:image.y+image.w*Math.sin(angle)+image.h*Math.cos(angle)};
+  };
+  assert.ok(Math.hypot(opposite(resized).x-opposite(rotatedImage).x,opposite(resized).y-opposite(rotatedImage).y)<.001,'rotated resize must retain the opposite corner');
+  await evaluate("document.getElementById('imageRotation').value='0';document.getElementById('imageRotation').dispatchEvent(new Event('change'));document.getElementById('imageWidth').value='200';document.getElementById('imageWidth').dispatchEvent(new Event('change'))");
+  assert.ok(Math.abs((await readImage()).h-100)<.001,'width field must update height with the ratio locked');
+  await evaluate("document.getElementById('imageLockAspect').checked=false;document.getElementById('imageLockAspect').dispatchEvent(new Event('change'));document.getElementById('imageHeight').value='80';document.getElementById('imageHeight').dispatchEvent(new Event('change'))");
+  assert.ok(Math.abs((await readImage()).w-200)<.001,'unlocked height changes must leave width unchanged');
+  await evaluate("document.getElementById('btnImageLarger').click()");
+  assert.ok(Math.abs((await readImage()).w-220)<.001);
+  await evaluate("document.getElementById('btnImageSmaller').click()");
+  assert.ok(Math.abs((await readImage()).w-198)<.001);
   await evaluate("document.getElementById('imageCropLeft').value='50';document.getElementById('imageCropLeft').dispatchEvent(new Event('change'));document.getElementById('imageWidth').value='100';document.getElementById('imageWidth').dispatchEvent(new Event('change'));document.getElementById('imageHeight').value='50';document.getElementById('imageHeight').dispatchEvent(new Event('change'))");
   const imageOutput=path.join(temp,'image-edited.pdf');setSavePath(imageOutput);
   await evaluate("document.getElementById('btnSave').click()");
@@ -232,7 +280,7 @@ module.exports=async({temp,win,evaluate,waitFor,scanPath,ocrOutput,networkAttemp
   assert.ok(!refreshed.some(item=>item.text.includes('LEGACY SEARCH LAYER')),'old invisible text must be removed before the new layer is added');
   assert.equal(refreshed.filter(item=>item.text.includes('HELLO OFFLINE OCR')).length,1,'one OCR layer per recognized line');
   console.log('PASS: low-resolution and rotated scan recognition/export, mixed-page classification, editing another page while OCR runs, cancellation preserving edits.');
-  console.log('PASS: native selection/nudge/copy-paste/history, cropped PNG export in a 125-page PDF, automatic scan OCR.');
+  console.log('PASS: native selection/nudge/copy-paste/history, image resize handles/ratio/rotated anchors/history/size controls, cropped PNG export in a 125-page PDF, automatic scan OCR.');
   console.log('PASS: regional pixel preservation, PDFium/PDF.js reopening, spatial OCR, columns/tables/fonts/colors, rotated coordinates, offline Portuguese, 125-page lazy rendering/search.');
   console.log('Large document: '+openingMs+'ms first render; '+navigationMs+'ms opening/navigation/search; '+performance.requests+' initial page requests.');
 };
