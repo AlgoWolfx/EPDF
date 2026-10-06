@@ -75,10 +75,11 @@ export async function removeTextObjects(bytes, annots) {
     for (const [index, list] of replacements) {
       const page = module.FPDF_LoadPage(doc, Number(index));
       if (!page) throw new Error('Page could not be loaded.');
-      const textPage = module.FPDFText_LoadPage(page);
+      let textPage = module.FPDFText_LoadPage(page);
       try {
         const edits = list.filter(a => a.type === 'replaceText').sort((a, b) => b.source.index - a.source.index);
         const seen = new Set();
+        const objects = [];
         for (const edit of edits) {
           if (seen.has(edit.source.index)) throw new Error('Duplicate text edit.');
           seen.add(edit.source.index);
@@ -87,11 +88,16 @@ export async function removeTextObjects(bytes, annots) {
               objectText(module, runtime, object, textPage) !== edit.source.text) {
             throw new Error('The source text has changed. Reopen the original PDF.');
           }
+          objects.push(object);
+        }
+        module.FPDFText_ClosePage(textPage);
+        textPage = 0;
+        for (const object of objects) {
           if (!module.FPDFPage_RemoveObject(page, object)) throw new Error('Text could not be removed.');
           module.FPDFPageObj_Destroy(object);
         }
         if (!module.FPDFPage_GenerateContent(page)) throw new Error('Page could not be updated.');
-      } finally { module.FPDFText_ClosePage(textPage); module.FPDF_ClosePage(page); }
+      } finally { if (textPage) module.FPDFText_ClosePage(textPage); module.FPDF_ClosePage(page); }
     }
     const writer = module.PDFiumExt_OpenFileWriter();
     if (!writer) throw new Error('Edited PDF could not be exported.');
