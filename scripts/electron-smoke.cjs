@@ -250,6 +250,7 @@ async function waitFor(check, label, timeout = 15000) {
   await fs.writeFile(path.join(temp,'desktop-dark.png'),(await win.webContents.capturePage()).toPNG());
   await evaluate("document.getElementById('btnNight').click()");
   assert.equal(await evaluate("document.documentElement.dataset.theme"),'light');
+  await evaluate("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
   await fs.writeFile(path.join(temp,'desktop-light.png'),(await win.webContents.capturePage()).toPNG());
   await require('./advanced-smoke.cjs')({temp,win,evaluate,waitFor,scanPath,ocrOutput,networkAttempts:()=>networkAttempts,setSavePath:file=>{savePath=file;}});
   assert.ok(errors.every(message=>/Orijinal PDF korunur/.test(message)),errors.join('\n'));

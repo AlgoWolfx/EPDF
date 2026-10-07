@@ -48,6 +48,8 @@ npm run dist:portable
 
 PDFium, PDF oluşturma/yazı tipi altkümesi ve Tesseract ayrı işçilerde çalışır. Sayfa görüntüleri ve küçük resimler ihtiyaç oldukça üretilir.
 
+Arayüz Segoe UI Variable/Segoe UI ile çevrimdışı çalışır. [Görsel üretim promptları](docs/ASSET_PROMPTS.md) uygulama ikonu, açılış illüstrasyonu ve isteğe bağlı GitHub tanıtım görselini tarif eder. [Tipografi kontrolü](docs/UI_TYPOGRAPHY.md).
+
 ## Güncellemeler
 GitHub üzerinden kullanıcı isteğiyle kontrol, indirme ve yeniden başlatarak kurulum. Portable sürüm yeni dosyayı Releases üzerinden alır.
 ```powershell

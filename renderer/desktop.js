@@ -54,6 +54,7 @@ export function createDesktop({state,plan,ensurePage,navigate,inline,images}) {
   }
   function refresh() {
     $('documentTab').textContent=state.pdf?state.name+'.pdf':t('Belge açık değil');
+    $('documentTab').title=$('documentTab').textContent;
     $('tabDirty').hidden=!state.pdf || JSON.stringify(inline.draft(state.annots))===state.savedAnnots;
     const next=JSON.stringify(plan());
     if (state.pdf!==documentRef || signature!==next) {
