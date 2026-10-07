@@ -33,31 +33,8 @@ Yerel PDF metin nesneleri PDFium ile kaldırılır, yerine gerçek metin yazıl�
 
 Dışa aktarılan değişiklikler standart PDF içeriğine işlenir. Kaynak belgeyi aynı bilgisayarda açarak taslağa devam edebilir veya çıktıdaki gerçek metni yeniden seçebilirsin.
 
-## Geliştirme ve doğrulama
-Node.js 22 veya üzeri:
-```powershell
-npm ci
-npm start
-npm test
-npm run dist
-npm run dist:portable
-```
-Çıktılar `dist/` içindedir. `Baslat.bat` uygulamayı başlatır; PDF'yi üzerine sürükleyebilirsin.
-
-`npm test` gerçek Electron'da çalışır. HTTP/HTTPS engelliyken TR/EN/PT OCR, otomatik tanıma, iptal sırasında bağımsız düzenleme, yerel metin, Unicode, stil/konum, sayfa işlemleri, kırpılmış resim, geçmiş, tema, arama ve 125 sayfalı belge kontrol edilir. Çıktılar PDF.js ve PDFium ile yeniden açılır; tarama düzenlemesinde değişmeyen tablo/görsel pikselleri karşılaştırılır. Ayrıntılar: [doğrulama kapsamı](docs/VALIDATION.md), [mimari](docs/ARCHITECTURE.md).
-
-PDFium, PDF oluşturma/yazı tipi altkümesi ve Tesseract ayrı işçilerde çalışır. Sayfa görüntüleri ve küçük resimler ihtiyaç oldukça üretilir.
-
-Arayüz Segoe UI Variable/Segoe UI ile çevrimdışı çalışır. [Görsel üretim promptları](docs/ASSET_PROMPTS.md) uygulama ikonu, açılış illüstrasyonu ve isteğe bağlı GitHub tanıtım görselini tarif eder. [Tipografi kontrolü](docs/UI_TYPOGRAPHY.md).
-
 ## Güncellemeler
 GitHub üzerinden kullanıcı isteğiyle kontrol, indirme ve yeniden başlatarak kurulum. Portable sürüm yeni dosyayı Releases üzerinden alır.
-```powershell
-npm test
-npm version patch
-git push origin main --follow-tags
-```
-Sürüm etiketi GitHub Actions ile Setup/Portable, blockmap ve `latest.yml` üretir. [Katkı rehberi](CONTRIBUTING.md).
 
 ## Gönüllü destek
 Tüm araçlar ücretsizdir. Faydalı bulduysan:
@@ -69,4 +46,4 @@ Tüm araçlar ücretsizdir. Faydalı bulduysan:
 PDF'ler sunucuya yüklenmez. Güncelleme kontrolü GitHub'a bağlanır; destek bağlantıları varsayılan tarayıcıda açılır.
 
 ## Lisanslar
-Üçüncü taraf lisansları [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) ve `licenses/` içindedir. EPDF kaynak kodu için ayrı bir lisans henüz belirlenmedi; uygulama ücretsiz dağıtılır.
+Kullanılan kütüphanelerin lisans metinleri [licenses/](licenses/) içindedir ve uygulamayla birlikte dağıtılır. EPDF kaynak kodu için ayrı bir lisans henüz belirlenmedi; uygulama ücretsiz dağıtılır.

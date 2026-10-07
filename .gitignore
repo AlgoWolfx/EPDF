@@ -2,3 +2,9 @@ node_modules/
 dist/
 test-output/
 *.log
+
+# Local planning, development notes and asset prompts
+/docs/
+/CONTRIBUTING.md
+/RELEASE_NOTES.md
+/THIRD_PARTY_NOTICES.md
